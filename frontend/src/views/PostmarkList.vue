@@ -126,8 +126,15 @@ function confirmDelete(row) {
       removable-sort
       class="rounded-lg border border-slate-200 bg-white shadow-sm"
       data-key="id"
-      :paginator-template="{ layout: 'RowsPerPageDropdown FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport', 'CurrentPageReport': '第 {first}-{last} 条 / 共 {totalRecords} 条' }"
-      :rows-per-page-label="'每页条数'"
+      :paginator-template="{
+        layout: 'RowsPerPageDropdown FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport',
+        FirstPageLink: { label: '首页' },
+        PrevPageLink: { label: '上一页' },
+        NextPageLink: { label: '下一页' },
+        LastPageLink: { label: '末页' },
+        RowsPerPageDropdown: { label: '每页条数' },
+        CurrentPageReport: '第 {first}-{last} 条 / 共 {totalRecords} 条',
+      }"
     >
       <template #header>
         <div class="flex justify-end">
@@ -172,7 +179,8 @@ function confirmDelete(row) {
       </Column>
 
       <template #empty>
-        <div class="py-8 text-center text-slate-500">暂无邮戳，点击「新增邮戳」添加第一条。</div>
+        <div v-if="filters.global?.value?.trim()" class="py-8 text-center text-slate-500">未找到匹配的邮戳</div>
+        <div v-else class="py-8 text-center text-slate-500">暂无邮戳，点击「新增邮戳」添加第一条。</div>
       </template>
     </DataTable>
   </div>

@@ -18,7 +18,7 @@ const activeTab = computed(() => {
           <i class="pi pi-envelope text-2xl text-amber-700" />
           <div>
             <h1 class="text-xl font-semibold text-slate-900">手写信封邮票组合收藏</h1>
-            <p class="text-sm text-slate-500">记录寄出地、目的地与邮票邮戳信息</p>
+            <p class="text-sm text-slate-500">信封收藏与邮戳图鉴管理</p>
           </div>
         </div>
         <nav class="mt-4 flex gap-1 border-b border-slate-200">
