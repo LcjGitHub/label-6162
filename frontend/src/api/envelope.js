@@ -1,5 +1,9 @@
 import axios from 'axios'
 
+/**
+ * 信封收藏模块共享 Axios 实例。
+ * 基地址指向 `/api`，默认请求头为 JSON 格式。
+ */
 const api = axios.create({
   baseURL: '/api',
   headers: { 'Content-Type': 'application/json' },

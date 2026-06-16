@@ -1,12 +1,30 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import Card from 'primevue/card'
 import ProgressSpinner from 'primevue/progressspinner'
 import { fetchStats } from '@/api/envelope'
 
+const CONDITION_ORDER = ['优秀', '良好', '一般']
+const ERA_ORDER = ['清末及以前', '民国时期', '建国初期', '改革开放', '新世纪']
+
 const loading = ref(true)
 const error = ref(null)
 const stats = ref({ total: 0, by_condition: {}, by_era: {} })
+
+const conditionList = computed(() =>
+  CONDITION_ORDER.map((cond) => ({
+    label: cond,
+    count: stats.value.by_condition?.[cond] ?? 0,
+  }))
+)
+
+const eraList = computed(() =>
+  ERA_ORDER.map((era, idx) => ({
+    label: era,
+    count: stats.value.by_era?.[era] ?? 0,
+    index: idx,
+  }))
+)
 
 const conditionColors = {
   '优秀': 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -68,16 +86,16 @@ onMounted(async () => {
         <Card>
           <template #title>按品相分组</template>
           <template #content>
-            <div v-if="Object.keys(stats.by_condition).length === 0" class="text-center text-sm text-slate-400">暂无数据</div>
+            <div v-if="conditionList.length === 0" class="text-center text-sm text-slate-400">暂无数据</div>
             <div v-else class="space-y-3">
               <div
-                v-for="(count, cond) in stats.by_condition"
-                :key="cond"
+                v-for="item in conditionList"
+                :key="item.label"
                 class="flex items-center justify-between rounded-lg border px-4 py-3"
-                :class="conditionColors[cond] || defaultConditionColor"
+                :class="conditionColors[item.label] || defaultConditionColor"
               >
-                <span class="text-sm font-medium">{{ cond }}</span>
-                <span class="text-lg font-bold">{{ count }}</span>
+                <span class="text-sm font-medium">{{ item.label }}</span>
+                <span class="text-lg font-bold">{{ item.count }}</span>
               </div>
             </div>
           </template>
@@ -86,16 +104,16 @@ onMounted(async () => {
         <Card>
           <template #title>按年代区间分组</template>
           <template #content>
-            <div v-if="Object.keys(stats.by_era).length === 0" class="text-center text-sm text-slate-400">暂无数据</div>
+            <div v-if="eraList.length === 0" class="text-center text-sm text-slate-400">暂无数据</div>
             <div v-else class="space-y-3">
               <div
-                v-for="(count, era, idx) in stats.by_era"
-                :key="era"
+                v-for="item in eraList"
+                :key="item.label"
                 class="flex items-center justify-between rounded-lg border px-4 py-3"
-                :class="eraColor(idx)"
+                :class="eraColor(item.index)"
               >
-                <span class="text-sm font-medium">{{ era }}</span>
-                <span class="text-lg font-bold">{{ count }}</span>
+                <span class="text-sm font-medium">{{ item.label }}</span>
+                <span class="text-lg font-bold">{{ item.count }}</span>
               </div>
             </div>
           </template>
