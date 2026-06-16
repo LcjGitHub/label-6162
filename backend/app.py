@@ -163,6 +163,24 @@ ERA_RANGES = [
 CONDITION_ORDER = ["优秀", "良好", "一般"]
 
 
+@app.route("/api/envelopes/stats/summary", methods=["GET"])
+def envelope_stats_summary():
+    """轻量统计：仅返回收藏总数及优秀、良好、一般三种品相数量。"""
+    conn = get_connection()
+    try:
+        total = conn.execute("SELECT COUNT(*) AS c FROM envelopes").fetchone()["c"]
+
+        condition_rows = conn.execute(
+            "SELECT condition, COUNT(*) AS c FROM envelopes GROUP BY condition"
+        ).fetchall()
+        condition_map = {r["condition"]: r["c"] for r in condition_rows}
+        by_condition = {cond: condition_map.get(cond, 0) for cond in CONDITION_ORDER}
+
+        return jsonify({"total": total, "by_condition": by_condition})
+    finally:
+        conn.close()
+
+
 @app.route("/api/envelopes/stats", methods=["GET"])
 def envelope_stats():
     """收藏数据统计：总数、按品相分组、按年代区间分组。"""

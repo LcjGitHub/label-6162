@@ -21,7 +21,6 @@ const confirm = useConfirm()
 const store = useEnvelopeStore()
 
 const dt = ref(null)
-const filteredCount = ref(0)
 
 const importDialogVisible = ref(false)
 const selectedFile = ref(null)
@@ -33,17 +32,14 @@ const importing = ref(false)
 
 const CSV_HEADERS = ['寄出地', '目的地', '年份', '邮票描述', '邮戳类型', '品相', '备注']
 
-const filters = ref({
-  global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-})
+const searchKeyword = ref('')
 
 const displayItems = computed(() => {
-  const keyword = filters.value.global?.value?.trim().toLowerCase()
+  const keyword = searchKeyword.value.trim().toLowerCase()
   if (!keyword) {
-    filteredCount.value = store.items.length
     return store.items
   }
-  const result = store.items.filter((item) =>
+  return store.items.filter((item) =>
     [
       item.origin,
       item.destination,
@@ -54,12 +50,12 @@ const displayItems = computed(() => {
       item.remark || '',
     ].some((v) => v.toLowerCase().includes(keyword))
   )
-  filteredCount.value = result.length
-  return result
 })
 
+const filteredCount = computed(() => displayItems.value.length)
+
 const displayCount = computed(() => {
-  const keyword = filters.value.global?.value?.trim()
+  const keyword = searchKeyword.value.trim()
   if (keyword) {
     return `搜索结果 ${filteredCount.value} 条 / 共 ${store.items.length} 条`
   }
@@ -76,7 +72,6 @@ const conditionSeverity = {
 onMounted(async () => {
   try {
     await store.fetchAll()
-    filteredCount.value = store.items.length
   } catch {
     toast.add({ severity: 'error', summary: '加载失败', detail: store.error, life: 4000 })
   }
@@ -112,7 +107,6 @@ function confirmDelete(row) {
     accept: async () => {
       try {
         await store.remove(row.id)
-        filteredCount.value = displayItems.value.length
         toast.add({ severity: 'success', summary: '已删除', life: 3000 })
       } catch {
         toast.add({ severity: 'error', summary: '删除失败', detail: store.error, life: 4000 })
@@ -209,7 +203,6 @@ async function doImport() {
   try {
     const result = await store.batchImport(selectedFile.value)
     importDialogVisible.value = false
-    filteredCount.value = displayItems.value.length
 
     if (result.failed_count > 0) {
       const detailLines = result.failed_lines.slice(0, 5)
@@ -268,61 +261,95 @@ function downloadTemplate() {
     </div>
 
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <Card class="stats-card">
-        <template #content>
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-sm font-medium text-slate-500">总收藏数</p>
-              <p class="mt-1 text-2xl font-bold text-amber-700">{{ store.stats.total }}</p>
+      <template v-if="store.statsLoading">
+        <Card v-for="i in 4" :key="i" class="stats-card">
+          <template #content>
+            <div class="flex items-center justify-between">
+              <div class="space-y-2 flex-1">
+                <div class="h-4 w-20 bg-slate-200 rounded animate-pulse"></div>
+                <div class="h-7 w-16 bg-slate-200 rounded animate-pulse"></div>
+              </div>
+              <div class="h-12 w-12 bg-slate-200 rounded-full animate-pulse"></div>
             </div>
-            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-amber-50 text-amber-600">
-              <i class="pi pi-envelope text-xl" />
-            </div>
-          </div>
-        </template>
-      </Card>
+          </template>
+        </Card>
+      </template>
 
-      <Card class="stats-card">
-        <template #content>
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-sm font-medium text-slate-500">优秀品相</p>
-              <p class="mt-1 text-2xl font-bold text-emerald-600">{{ store.stats.by_condition?.['优秀'] ?? 0 }}</p>
+      <template v-else-if="store.statsError">
+        <Card class="stats-card col-span-full">
+          <template #content>
+            <div class="flex items-center justify-center gap-2 text-red-600">
+              <i class="pi pi-exclamation-circle" />
+              <span class="text-sm">{{ store.statsError }}</span>
+              <Button
+                label="重试"
+                size="small"
+                severity="secondary"
+                text
+                @click="store.fetchStatsSummary()"
+              />
             </div>
-            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
-              <i class="pi pi-star text-xl" />
-            </div>
-          </div>
-        </template>
-      </Card>
+          </template>
+        </Card>
+      </template>
 
-      <Card class="stats-card">
-        <template #content>
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-sm font-medium text-slate-500">良好品相</p>
-              <p class="mt-1 text-2xl font-bold text-blue-600">{{ store.stats.by_condition?.['良好'] ?? 0 }}</p>
+      <template v-else>
+        <Card class="stats-card">
+          <template #content>
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-slate-500">总收藏数</p>
+                <p class="mt-1 text-2xl font-bold text-amber-700">{{ store.stats.total }}</p>
+              </div>
+              <div class="flex h-12 w-12 items-center justify-center rounded-full bg-amber-50 text-amber-600">
+                <i class="pi pi-envelope text-xl" />
+              </div>
             </div>
-            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-              <i class="pi pi-thumbs-up text-xl" />
-            </div>
-          </div>
-        </template>
-      </Card>
+          </template>
+        </Card>
 
-      <Card class="stats-card">
-        <template #content>
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-sm font-medium text-slate-500">一般品相</p>
-              <p class="mt-1 text-2xl font-bold text-amber-600">{{ store.stats.by_condition?.['一般'] ?? 0 }}</p>
+        <Card class="stats-card">
+          <template #content>
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-slate-500">优秀品相</p>
+                <p class="mt-1 text-2xl font-bold text-emerald-600">{{ store.stats.by_condition?.['优秀'] ?? 0 }}</p>
+              </div>
+              <div class="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                <i class="pi pi-star text-xl" />
+              </div>
             </div>
-            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-amber-50 text-amber-600">
-              <i class="pi pi-flag text-xl" />
+          </template>
+        </Card>
+
+        <Card class="stats-card">
+          <template #content>
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-slate-500">良好品相</p>
+                <p class="mt-1 text-2xl font-bold text-blue-600">{{ store.stats.by_condition?.['良好'] ?? 0 }}</p>
+              </div>
+              <div class="flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                <i class="pi pi-thumbs-up text-xl" />
+              </div>
             </div>
-          </div>
-        </template>
-      </Card>
+          </template>
+        </Card>
+
+        <Card class="stats-card">
+          <template #content>
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-slate-500">一般品相</p>
+                <p class="mt-1 text-2xl font-bold text-amber-600">{{ store.stats.by_condition?.['一般'] ?? 0 }}</p>
+              </div>
+              <div class="flex h-12 w-12 items-center justify-center rounded-full bg-amber-50 text-amber-600">
+                <i class="pi pi-flag text-xl" />
+              </div>
+            </div>
+          </template>
+        </Card>
+      </template>
     </div>
 
     <div v-if="store.loading && !store.items.length" class="flex justify-center py-16">
@@ -332,7 +359,6 @@ function downloadTemplate() {
     <DataTable
       v-else
       ref="dt"
-      v-model:filters="filters"
       :value="displayItems"
       :loading="store.loading"
       paginator
@@ -357,7 +383,7 @@ function downloadTemplate() {
           <span class="relative">
             <i class="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
-              v-model="filters.global.value"
+              v-model="searchKeyword"
               type="text"
               placeholder="搜索..."
               class="rounded border border-slate-300 py-2 pl-9 pr-3 text-sm"
