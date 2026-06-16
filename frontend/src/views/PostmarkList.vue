@@ -18,6 +18,16 @@ const toast = useToast()
 const confirm = useConfirm()
 const store = usePostmarkStore()
 
+const paginatorTemplate = {
+  layout: 'RowsPerPageDropdown FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport',
+  FirstPageLink: { label: '首页' },
+  PrevPageLink: { label: '上一页' },
+  NextPageLink: { label: '下一页' },
+  LastPageLink: { label: '末页' },
+  RowsPerPageDropdown: { label: '每页条数' },
+  CurrentPageReport: '第 {first}-{last} 条 / 共 {totalRecords} 条',
+}
+
 const dt = ref(null)
 const filteredCount = ref(0)
 
@@ -126,15 +136,7 @@ function confirmDelete(row) {
       removable-sort
       class="rounded-lg border border-slate-200 bg-white shadow-sm"
       data-key="id"
-      :paginator-template="{
-        layout: 'RowsPerPageDropdown FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport',
-        FirstPageLink: { label: '首页' },
-        PrevPageLink: { label: '上一页' },
-        NextPageLink: { label: '下一页' },
-        LastPageLink: { label: '末页' },
-        RowsPerPageDropdown: { label: '每页条数' },
-        CurrentPageReport: '第 {first}-{last} 条 / 共 {totalRecords} 条',
-      }"
+      :paginator-template="paginatorTemplate"
     >
       <template #header>
         <div class="flex justify-end">

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import api, { fetchStatsSummary, importEnvelopes } from '@/api/envelope'
+import api, { fetchStatsSummary, fetchPostmarkTypes, fetchEnvelopes, importEnvelopes } from '@/api/envelope'
 
 /**
  * @typedef {Object} Envelope
@@ -27,6 +27,10 @@ export const useEnvelopeStore = defineStore('envelope', {
     current: null,
     /** @type {StatsData} */
     stats: { total: 0, by_condition: {} },
+    /** @type {string[]} */
+    postmarkTypes: [],
+    /** @type {{ year_start: number|null, year_end: number|null, postmark_type: string }} */
+    filters: { year_start: null, year_end: null, postmark_type: '' },
     loading: false,
     statsLoading: false,
     error: null,
@@ -61,13 +65,19 @@ export const useEnvelopeStore = defineStore('envelope', {
       this.error = null
       this.statsError = null
       try {
-        const [listRes, statsRes] = await Promise.allSettled([
-          api.get('/envelopes'),
+        const params = {}
+        if (this.filters.year_start != null) params.year_start = this.filters.year_start
+        if (this.filters.year_end != null) params.year_end = this.filters.year_end
+        if (this.filters.postmark_type) params.postmark_type = this.filters.postmark_type
+
+        const [listRes, statsRes, typesRes] = await Promise.allSettled([
+          fetchEnvelopes(params),
           fetchStatsSummary(),
+          this.postmarkTypes.length ? Promise.resolve(this.postmarkTypes) : fetchPostmarkTypes(),
         ])
 
         if (listRes.status === 'fulfilled') {
-          this.items = listRes.value.data
+          this.items = listRes.value
         } else {
           this.error = listRes.reason.response?.data?.error || '加载列表失败'
           throw listRes.reason
@@ -77,6 +87,10 @@ export const useEnvelopeStore = defineStore('envelope', {
           this.stats = statsRes.value
         } else {
           this.statsError = statsRes.reason.response?.data?.error || '加载统计数据失败'
+        }
+
+        if (typesRes.status === 'fulfilled' && Array.isArray(typesRes.value)) {
+          this.postmarkTypes = typesRes.value
         }
       } catch (err) {
         this.error = err.response?.data?.error || '加载列表失败'
@@ -187,6 +201,22 @@ export const useEnvelopeStore = defineStore('envelope', {
         throw err
       } finally {
         this.loading = false
+      }
+    },
+
+    setFilters(filters) {
+      this.filters = { ...this.filters, ...filters }
+    },
+
+    resetFilters() {
+      this.filters = { year_start: null, year_end: null, postmark_type: '' }
+    },
+
+    async loadPostmarkTypes() {
+      try {
+        this.postmarkTypes = await fetchPostmarkTypes()
+      } catch {
+        this.postmarkTypes = []
       }
     },
   },

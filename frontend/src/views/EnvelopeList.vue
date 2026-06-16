@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { FilterMatchMode } from '@primevue/core/api'
 import { useToast } from 'primevue/usetoast'
@@ -13,6 +13,7 @@ import ProgressSpinner from 'primevue/progressspinner'
 import Toast from 'primevue/toast'
 import ConfirmDialog from 'primevue/confirmdialog'
 import Dialog from 'primevue/dialog'
+import Select from 'primevue/select'
 import { useEnvelopeStore } from '@/stores/envelope'
 
 const router = useRouter()
@@ -32,7 +33,59 @@ const importing = ref(false)
 
 const CSV_HEADERS = ['寄出地', '目的地', '年份', '邮票描述', '邮戳类型', '品相', '备注']
 
+const paginatorTemplate = {
+  layout: 'RowsPerPageDropdown FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport',
+  FirstPageLink: { label: '首页' },
+  PrevPageLink: { label: '上一页' },
+  NextPageLink: { label: '下一页' },
+  LastPageLink: { label: '末页' },
+  RowsPerPageDropdown: { label: '每页条数' },
+  CurrentPageReport: '第 {first}-{last} 条 / 共 {totalRecords} 条',
+}
+
 const searchKeyword = ref('')
+
+const filterYearStart = ref(null)
+const filterYearEnd = ref(null)
+const filterPostmarkType = ref('')
+
+const postmarkTypeOptions = computed(() => {
+  return [
+    { label: '全部类型', value: '' },
+    ...store.postmarkTypes.map((t) => ({ label: t, value: t })),
+  ]
+})
+
+const hasActiveFilters = computed(() => {
+  return filterYearStart.value != null || filterYearEnd.value != null || filterPostmarkType.value !== ''
+})
+
+function buildFilterParams() {
+  const params = {}
+  if (filterYearStart.value != null) params.year_start = filterYearStart.value
+  if (filterYearEnd.value != null) params.year_end = filterYearEnd.value
+  if (filterPostmarkType.value) params.postmark_type = filterPostmarkType.value
+  return params
+}
+
+async function applyFilters() {
+  store.setFilters(buildFilterParams())
+  try {
+    await store.fetchAll()
+  } catch {
+    toast.add({ severity: 'error', summary: '筛选失败', detail: store.error, life: 4000 })
+  }
+}
+
+function resetFilters() {
+  filterYearStart.value = null
+  filterYearEnd.value = null
+  filterPostmarkType.value = ''
+  store.resetFilters()
+  store.fetchAll().catch(() => {
+    toast.add({ severity: 'error', summary: '加载失败', detail: store.error, life: 4000 })
+  })
+}
 
 const displayItems = computed(() => {
   const keyword = searchKeyword.value.trim().toLowerCase()
@@ -56,10 +109,14 @@ const filteredCount = computed(() => displayItems.value.length)
 
 const displayCount = computed(() => {
   const keyword = searchKeyword.value.trim()
+  const parts = []
+  if (hasActiveFilters.value) parts.push('筛选中')
   if (keyword) {
-    return `搜索结果 ${filteredCount.value} 条 / 共 ${store.items.length} 条`
+    parts.push(`搜索结果 ${filteredCount.value} 条 / 共 ${store.items.length} 条`)
+  } else {
+    parts.push(`共 ${store.items.length} 条记录`)
   }
-  return `共 ${store.items.length} 条记录`
+  return parts.join(' · ')
 })
 
 /** 品相对应 Tag 样式 */
@@ -368,27 +425,67 @@ function downloadTemplate() {
       removable-sort
       class="rounded-lg border border-slate-200 bg-white shadow-sm"
       data-key="id"
-      :paginator-template="{
-        layout: 'RowsPerPageDropdown FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport',
-        FirstPageLink: { label: '首页' },
-        PrevPageLink: { label: '上一页' },
-        NextPageLink: { label: '下一页' },
-        LastPageLink: { label: '末页' },
-        RowsPerPageDropdown: { label: '每页条数' },
-        CurrentPageReport: '第 {first}-{last} 条 / 共 {totalRecords} 条',
-      }"
+      :paginator-template="paginatorTemplate"
     >
       <template #header>
-        <div class="flex justify-end">
-          <span class="relative">
-            <i class="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              v-model="searchKeyword"
-              type="text"
-              placeholder="搜索..."
-              class="rounded border border-slate-300 py-2 pl-9 pr-3 text-sm"
-            />
-          </span>
+        <div class="space-y-3">
+          <div class="flex justify-end">
+            <span class="relative">
+              <i class="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                v-model="searchKeyword"
+                type="text"
+                placeholder="搜索..."
+                class="rounded border border-slate-300 py-2 pl-9 pr-3 text-sm"
+              />
+            </span>
+          </div>
+          <div class="flex flex-wrap items-end gap-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-medium text-slate-600">起始年份</label>
+              <input
+                v-model.number="filterYearStart"
+                type="number"
+                placeholder="如 1950"
+                min="1800"
+                max="2100"
+                class="w-28 rounded border border-slate-300 px-2 py-1.5 text-sm"
+              />
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-medium text-slate-600">结束年份</label>
+              <input
+                v-model.number="filterYearEnd"
+                type="number"
+                placeholder="如 2000"
+                min="1800"
+                max="2100"
+                class="w-28 rounded border border-slate-300 px-2 py-1.5 text-sm"
+              />
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-medium text-slate-600">邮戳类型</label>
+              <Select
+                v-model="filterPostmarkType"
+                :options="postmarkTypeOptions"
+                optionLabel="label"
+                optionValue="value"
+                class="w-40"
+              />
+            </div>
+            <div class="flex gap-2">
+              <Button label="筛选" icon="pi pi-filter" size="small" @click="applyFilters" />
+              <Button
+                label="重置"
+                icon="pi pi-refresh"
+                size="small"
+                severity="secondary"
+                outlined
+                @click="resetFilters"
+                :disabled="!hasActiveFilters"
+              />
+            </div>
+          </div>
         </div>
       </template>
 

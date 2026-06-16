@@ -36,6 +36,16 @@ export async function fetchStatsSummary() {
  * @param {File} file - CSV 文件对象
  * @returns {Promise<{success: number, failed_count: number, failed_lines: string[], processed: number}>}
  */
+export async function fetchPostmarkTypes() {
+  const { data } = await api.get('/envelopes/postmark-types')
+  return data
+}
+
+export async function fetchEnvelopes(params = {}) {
+  const { data } = await api.get('/envelopes', { params })
+  return data
+}
+
 export async function importEnvelopes(file) {
   const formData = new FormData()
   formData.append('file', file)

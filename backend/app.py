@@ -209,17 +209,50 @@ def envelope_stats():
 
 @app.route("/api/envelopes", methods=["GET"])
 def list_envelopes():
-    """获取全部信封收藏（含标签）。"""
+    """获取全部信封收藏（含标签），支持按年份区间和邮戳类型筛选。"""
+    year_start = request.args.get("year_start", type=int)
+    year_end = request.args.get("year_end", type=int)
+    postmark_type = request.args.get("postmark_type", type=str)
+
+    conditions = []
+    params = []
+
+    if year_start is not None:
+        conditions.append("year >= ?")
+        params.append(year_start)
+    if year_end is not None:
+        conditions.append("year <= ?")
+        params.append(year_end)
+    if postmark_type:
+        conditions.append("postmark_type = ?")
+        params.append(postmark_type)
+
+    where_clause = (" WHERE " + " AND ".join(conditions)) if conditions else ""
+
     conn = get_connection()
     try:
         rows = conn.execute(
-            "SELECT * FROM envelopes ORDER BY year DESC, id DESC"
+            f"SELECT * FROM envelopes{where_clause} ORDER BY year DESC, id DESC",
+            params,
         ).fetchall()
         result = []
         for row in rows:
             tags = get_envelope_tags(conn, row["id"])
             result.append(envelope_row_to_dict_with_tags(row, tags))
         return jsonify(result)
+    finally:
+        conn.close()
+
+
+@app.route("/api/envelopes/postmark-types", methods=["GET"])
+def list_postmark_types():
+    """获取信封收藏中所有去重的邮戳类型。"""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT DISTINCT postmark_type FROM envelopes ORDER BY postmark_type ASC"
+        ).fetchall()
+        return jsonify([r["postmark_type"] for r in rows])
     finally:
         conn.close()
 
