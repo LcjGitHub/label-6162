@@ -90,6 +90,41 @@ def validate_postmark_payload(data: dict) -> str | None:
     return None
 
 
+ERA_RANGES = [
+    ("清末及以前", 0, 1911),
+    ("民国时期", 1912, 1949),
+    ("建国初期", 1950, 1979),
+    ("改革开放", 1980, 1999),
+    ("新世纪", 2000, 9999),
+]
+
+
+@app.route("/api/envelopes/stats", methods=["GET"])
+def envelope_stats():
+    """收藏数据统计：总数、按品相分组、按年代区间分组。"""
+    conn = get_connection()
+    try:
+        total = conn.execute("SELECT COUNT(*) AS c FROM envelopes").fetchone()["c"]
+
+        condition_rows = conn.execute(
+            "SELECT condition, COUNT(*) AS c FROM envelopes GROUP BY condition ORDER BY c DESC"
+        ).fetchall()
+        by_condition = {r["condition"]: r["c"] for r in condition_rows}
+
+        by_era = {}
+        for label, lo, hi in ERA_RANGES:
+            cnt = conn.execute(
+                "SELECT COUNT(*) AS c FROM envelopes WHERE year BETWEEN ? AND ?",
+                (lo, hi),
+            ).fetchone()["c"]
+            if cnt > 0:
+                by_era[label] = cnt
+
+        return jsonify({"total": total, "by_condition": by_condition, "by_era": by_era})
+    finally:
+        conn.close()
+
+
 @app.route("/api/envelopes", methods=["GET"])
 def list_envelopes():
     """获取全部信封收藏。"""

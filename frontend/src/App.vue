@@ -5,6 +5,7 @@ import { computed } from 'vue'
 const route = useRoute()
 
 const activeTab = computed(() => {
+  if (route.name === 'dashboard') return 'dashboard'
   if (route.name?.startsWith('postmark')) return 'postmark'
   return 'envelope'
 })
@@ -22,6 +23,14 @@ const activeTab = computed(() => {
           </div>
         </div>
         <nav class="mt-4 flex gap-1 border-b border-slate-200">
+          <router-link
+            :to="{ name: 'dashboard' }"
+            class="px-4 py-2 text-sm font-medium transition-colors"
+            :class="activeTab === 'dashboard' ? 'border-b-2 border-amber-600 text-amber-700 -mb-px' : 'text-slate-500 hover:text-slate-700'"
+          >
+            <i class="pi pi-chart-bar mr-2" />
+            数据看板
+          </router-link>
           <router-link
             :to="{ name: 'list' }"
             class="px-4 py-2 text-sm font-medium transition-colors"
