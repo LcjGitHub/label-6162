@@ -1,0 +1,127 @@
+import { defineStore } from 'pinia'
+import api from '@/api/envelope'
+
+/**
+ * @typedef {Object} Envelope
+ * @property {number} id
+ * @property {string} origin - 寄出地
+ * @property {string} destination - 目的地
+ * @property {number} year - 年份
+ * @property {string} stamp_description - 邮票描述
+ * @property {string} postmark_type - 邮戳类型
+ * @property {string} condition - 品相
+ */
+
+export const useEnvelopeStore = defineStore('envelope', {
+  state: () => ({
+    /** @type {Envelope[]} */
+    items: [],
+    /** @type {Envelope | null} */
+    current: null,
+    loading: false,
+    error: null,
+  }),
+
+  actions: {
+    /**
+     * 加载全部信封列表。
+     * @returns {Promise<void>}
+     */
+    async fetchAll() {
+      this.loading = true
+      this.error = null
+      try {
+        const { data } = await api.get('/envelopes')
+        this.items = data
+      } catch (err) {
+        this.error = err.response?.data?.error || '加载列表失败'
+        throw err
+      } finally {
+        this.loading = false
+      }
+    },
+
+    /**
+     * 按 ID 加载单条记录。
+     * @param {number} id
+     * @returns {Promise<Envelope>}
+     */
+    async fetchOne(id) {
+      this.loading = true
+      this.error = null
+      try {
+        const { data } = await api.get(`/envelopes/${id}`)
+        this.current = data
+        return data
+      } catch (err) {
+        this.error = err.response?.data?.error || '加载详情失败'
+        throw err
+      } finally {
+        this.loading = false
+      }
+    },
+
+    /**
+     * 新建信封。
+     * @param {Omit<Envelope, 'id'>} payload
+     * @returns {Promise<Envelope>}
+     */
+    async create(payload) {
+      this.loading = true
+      this.error = null
+      try {
+        const { data } = await api.post('/envelopes', payload)
+        this.items.unshift(data)
+        return data
+      } catch (err) {
+        this.error = err.response?.data?.error || '创建失败'
+        throw err
+      } finally {
+        this.loading = false
+      }
+    },
+
+    /**
+     * 更新信封。
+     * @param {number} id
+     * @param {Omit<Envelope, 'id'>} payload
+     * @returns {Promise<Envelope>}
+     */
+    async update(id, payload) {
+      this.loading = true
+      this.error = null
+      try {
+        const { data } = await api.put(`/envelopes/${id}`, payload)
+        const idx = this.items.findIndex((e) => e.id === id)
+        if (idx !== -1) this.items[idx] = data
+        this.current = data
+        return data
+      } catch (err) {
+        this.error = err.response?.data?.error || '更新失败'
+        throw err
+      } finally {
+        this.loading = false
+      }
+    },
+
+    /**
+     * 删除信封。
+     * @param {number} id
+     * @returns {Promise<void>}
+     */
+    async remove(id) {
+      this.loading = true
+      this.error = null
+      try {
+        await api.delete(`/envelopes/${id}`)
+        this.items = this.items.filter((e) => e.id !== id)
+        if (this.current?.id === id) this.current = null
+      } catch (err) {
+        this.error = err.response?.data?.error || '删除失败'
+        throw err
+      } finally {
+        this.loading = false
+      }
+    },
+  },
+})
