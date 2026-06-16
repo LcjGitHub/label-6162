@@ -149,7 +149,7 @@ function goBack() {
     <div v-else class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
       <div class="grid gap-6 md:grid-cols-2">
         <div class="flex flex-col gap-2">
-          <label class="text-sm font-medium text-slate-700">寄出地 <span class="text-red-500">*</span></label>
+          <label class="text-sm font-medium text-slate-700">寄出地 <span v-if="editing" class="text-red-500">*</span></label>
           <InputText
             v-if="editing"
             v-model="form.origin"
@@ -160,7 +160,7 @@ function goBack() {
         </div>
 
         <div class="flex flex-col gap-2">
-          <label class="text-sm font-medium text-slate-700">目的地 <span class="text-red-500">*</span></label>
+          <label class="text-sm font-medium text-slate-700">目的地 <span v-if="editing" class="text-red-500">*</span></label>
           <InputText
             v-if="editing"
             v-model="form.destination"
@@ -171,7 +171,7 @@ function goBack() {
         </div>
 
         <div class="flex flex-col gap-2">
-          <label class="text-sm font-medium text-slate-700">年份 <span class="text-red-500">*</span></label>
+          <label class="text-sm font-medium text-slate-700">年份 <span v-if="editing" class="text-red-500">*</span></label>
           <InputNumber
             v-if="editing"
             v-model="form.year"
@@ -184,7 +184,7 @@ function goBack() {
         </div>
 
         <div class="flex flex-col gap-2">
-          <label class="text-sm font-medium text-slate-700">邮戳类型 <span class="text-red-500">*</span></label>
+          <label class="text-sm font-medium text-slate-700">邮戳类型 <span v-if="editing" class="text-red-500">*</span></label>
           <Select
             v-if="editing"
             v-model="form.postmark_type"
@@ -195,7 +195,7 @@ function goBack() {
         </div>
 
         <div class="flex flex-col gap-2 md:col-span-2">
-          <label class="text-sm font-medium text-slate-700">邮票描述 <span class="text-red-500">*</span></label>
+          <label class="text-sm font-medium text-slate-700">邮票描述 <span v-if="editing" class="text-red-500">*</span></label>
           <Textarea
             v-if="editing"
             v-model="form.stamp_description"
@@ -207,7 +207,7 @@ function goBack() {
         </div>
 
         <div class="flex flex-col gap-2">
-          <label class="text-sm font-medium text-slate-700">品相 <span class="text-red-500">*</span></label>
+          <label class="text-sm font-medium text-slate-700">品相 <span v-if="editing" class="text-red-500">*</span></label>
           <Select
             v-if="editing"
             v-model="form.condition"

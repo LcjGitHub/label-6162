@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { FilterMatchMode } from '@primevue/core/api'
 import { useToast } from 'primevue/usetoast'
@@ -18,8 +18,39 @@ const toast = useToast()
 const confirm = useConfirm()
 const store = useEnvelopeStore()
 
+const dt = ref(null)
+const filteredCount = ref(0)
+
 const filters = ref({
   global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+})
+
+const displayItems = computed(() => {
+  const keyword = filters.value.global?.value?.trim().toLowerCase()
+  if (!keyword) {
+    filteredCount.value = store.items.length
+    return store.items
+  }
+  const result = store.items.filter((item) =>
+    [
+      item.origin,
+      item.destination,
+      String(item.year),
+      item.stamp_description,
+      item.postmark_type,
+      item.condition,
+    ].some((v) => v.toLowerCase().includes(keyword))
+  )
+  filteredCount.value = result.length
+  return result
+})
+
+const displayCount = computed(() => {
+  const keyword = filters.value.global?.value?.trim()
+  if (keyword) {
+    return `搜索结果 ${filteredCount.value} 条 / 共 ${store.items.length} 条`
+  }
+  return `共 ${store.items.length} 条记录`
 })
 
 /** 品相对应 Tag 样式 */
@@ -32,6 +63,7 @@ const conditionSeverity = {
 onMounted(async () => {
   try {
     await store.fetchAll()
+    filteredCount.value = store.items.length
   } catch {
     toast.add({ severity: 'error', summary: '加载失败', detail: store.error, life: 4000 })
   }
@@ -67,6 +99,7 @@ function confirmDelete(row) {
     accept: async () => {
       try {
         await store.remove(row.id)
+        filteredCount.value = displayItems.value.length
         toast.add({ severity: 'success', summary: '已删除', life: 3000 })
       } catch {
         toast.add({ severity: 'error', summary: '删除失败', detail: store.error, life: 4000 })
@@ -84,7 +117,7 @@ function confirmDelete(row) {
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h2 class="text-lg font-semibold text-slate-900">收藏列表</h2>
-        <p class="text-sm text-slate-500">共 {{ store.items.length }} 条记录</p>
+        <p class="text-sm text-slate-500">{{ displayCount }}</p>
       </div>
       <Button label="新增收藏" icon="pi pi-plus" @click="goCreate" />
     </div>
@@ -95,17 +128,19 @@ function confirmDelete(row) {
 
     <DataTable
       v-else
+      ref="dt"
       v-model:filters="filters"
-      :value="store.items"
+      :value="displayItems"
       :loading="store.loading"
       paginator
       :rows="10"
       :rows-per-page-options="[5, 10, 20]"
       striped-rows
       removable-sort
-      :global-filter-fields="['origin', 'destination', 'stamp_description', 'postmark_type', 'condition']"
       class="rounded-lg border border-slate-200 bg-white shadow-sm"
       data-key="id"
+      :paginator-template="{ layout: 'RowsPerPageDropdown FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport', 'CurrentPageReport': '第 {first}-{last} 条 / 共 {totalRecords} 条' }"
+      :rows-per-page-label="'每页条数'"
     >
       <template #header>
         <div class="flex justify-end">

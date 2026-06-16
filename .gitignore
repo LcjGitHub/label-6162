@@ -127,9 +127,6 @@ tmp/
 *.xlsm
 *.xlsb
 
-# Text files
-*.txt
-
 # App data
 history_snapshots.json
 data/*.db

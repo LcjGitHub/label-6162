@@ -1,13 +1,11 @@
 """手写信封邮票组合收藏 — Flask API。"""
 
 from flask import Flask, jsonify, request
-from flask_cors import CORS
 
 from database import get_connection, init_db
 from seed import seed
 
 app = Flask(__name__)
-CORS(app)
 
 REQUIRED_FIELDS = (
     "origin",
