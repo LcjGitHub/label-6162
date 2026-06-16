@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import api, { importEnvelopes } from '@/api/envelope'
+import api, { fetchStats, importEnvelopes } from '@/api/envelope'
 
 /**
  * @typedef {Object} Envelope
@@ -13,32 +13,66 @@ import api, { importEnvelopes } from '@/api/envelope'
  * @property {string} remark - 备注
  */
 
+/**
+ * @typedef {Object} StatsData
+ * @property {number} total - 总收藏数
+ * @property {Record<string, number>} by_condition - 按品相分组数量
+ * @property {Record<string, number>} by_era - 按年代区间分组数量
+ */
+
 export const useEnvelopeStore = defineStore('envelope', {
   state: () => ({
     /** @type {Envelope[]} */
     items: [],
     /** @type {Envelope | null} */
     current: null,
+    /** @type {StatsData} */
+    stats: { total: 0, by_condition: {}, by_era: {} },
     loading: false,
+    statsLoading: false,
     error: null,
+    statsError: null,
   }),
 
   actions: {
     /**
-     * 加载全部信封列表。
+     * 加载统计数据。
+     * @returns {Promise<void>}
+     */
+    async fetchStats() {
+      this.statsLoading = true
+      this.statsError = null
+      try {
+        this.stats = await fetchStats()
+      } catch (err) {
+        this.statsError = err.response?.data?.error || '加载统计数据失败'
+        throw err
+      } finally {
+        this.statsLoading = false
+      }
+    },
+
+    /**
+     * 加载全部信封列表，同时并行加载统计数据。
      * @returns {Promise<void>}
      */
     async fetchAll() {
       this.loading = true
+      this.statsLoading = true
       this.error = null
+      this.statsError = null
       try {
-        const { data } = await api.get('/envelopes')
-        this.items = data
+        const [listRes] = await Promise.all([
+          api.get('/envelopes'),
+          this.fetchStats().catch(() => {}),
+        ])
+        this.items = listRes.data
       } catch (err) {
         this.error = err.response?.data?.error || '加载列表失败'
         throw err
       } finally {
         this.loading = false
+        this.statsLoading = false
       }
     },
 
@@ -73,6 +107,7 @@ export const useEnvelopeStore = defineStore('envelope', {
       try {
         const { data } = await api.post('/envelopes', payload)
         this.items.unshift(data)
+        this.fetchStats().catch(() => {})
         return data
       } catch (err) {
         this.error = err.response?.data?.error || '创建失败'
@@ -96,6 +131,7 @@ export const useEnvelopeStore = defineStore('envelope', {
         const idx = this.items.findIndex((e) => e.id === id)
         if (idx !== -1) this.items[idx] = data
         this.current = data
+        this.fetchStats().catch(() => {})
         return data
       } catch (err) {
         this.error = err.response?.data?.error || '更新失败'
@@ -117,6 +153,7 @@ export const useEnvelopeStore = defineStore('envelope', {
         await api.delete(`/envelopes/${id}`)
         this.items = this.items.filter((e) => e.id !== id)
         if (this.current?.id === id) this.current = null
+        this.fetchStats().catch(() => {})
       } catch (err) {
         this.error = err.response?.data?.error || '删除失败'
         throw err

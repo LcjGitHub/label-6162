@@ -8,6 +8,7 @@ import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Button from 'primevue/button'
 import Tag from 'primevue/tag'
+import Card from 'primevue/card'
 import ProgressSpinner from 'primevue/progressspinner'
 import Toast from 'primevue/toast'
 import ConfirmDialog from 'primevue/confirmdialog'
@@ -264,6 +265,64 @@ function downloadTemplate() {
         <Button label="批量导入" icon="pi pi-upload" severity="info" @click="openImportDialog" />
         <Button label="新增收藏" icon="pi pi-plus" @click="goCreate" />
       </div>
+    </div>
+
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <Card class="stats-card">
+        <template #content>
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-slate-500">总收藏数</p>
+              <p class="mt-1 text-2xl font-bold text-amber-700">{{ store.stats.total }}</p>
+            </div>
+            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-amber-50 text-amber-600">
+              <i class="pi pi-envelope text-xl" />
+            </div>
+          </div>
+        </template>
+      </Card>
+
+      <Card class="stats-card">
+        <template #content>
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-slate-500">优秀品相</p>
+              <p class="mt-1 text-2xl font-bold text-emerald-600">{{ store.stats.by_condition?.['优秀'] ?? 0 }}</p>
+            </div>
+            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+              <i class="pi pi-star text-xl" />
+            </div>
+          </div>
+        </template>
+      </Card>
+
+      <Card class="stats-card">
+        <template #content>
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-slate-500">良好品相</p>
+              <p class="mt-1 text-2xl font-bold text-blue-600">{{ store.stats.by_condition?.['良好'] ?? 0 }}</p>
+            </div>
+            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+              <i class="pi pi-thumbs-up text-xl" />
+            </div>
+          </div>
+        </template>
+      </Card>
+
+      <Card class="stats-card">
+        <template #content>
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-slate-500">一般品相</p>
+              <p class="mt-1 text-2xl font-bold text-amber-600">{{ store.stats.by_condition?.['一般'] ?? 0 }}</p>
+            </div>
+            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-amber-50 text-amber-600">
+              <i class="pi pi-flag text-xl" />
+            </div>
+          </div>
+        </template>
+      </Card>
     </div>
 
     <div v-if="store.loading && !store.items.length" class="flex justify-center py-16">
