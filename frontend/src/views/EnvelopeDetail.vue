@@ -150,6 +150,24 @@ function goBack() {
 function getTagById(tagId) {
   return tagStore.items.find((t) => t.id === tagId)
 }
+
+/**
+ * 根据标签ID获取标签颜色。
+ * @param {number} tagId
+ * @returns {string | undefined}
+ */
+function getTagColor(tagId) {
+  const tag = getTagById(tagId)
+  return tag?.color
+}
+
+/**
+ * 移除已选标签芯片。
+ * @param {number} tagId
+ */
+function removeChip(tagId) {
+  form.tagIds = form.tagIds.filter((id) => id !== tagId)
+}
 </script>
 
 <template>
@@ -257,7 +275,17 @@ function getTagById(tagId) {
             display="chip"
             :maxSelectedLabels="5"
             :selectedItemsLabel="selectedCount => `已选 ${selectedCount} 个`"
-          />
+          >
+            <template #chip="{ value, label }">
+              <span
+                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-white"
+                :style="{ backgroundColor: getTagColor(value) || '#6b7280' }"
+              >
+                {{ label }}
+                <i class="pi pi-times cursor-pointer text-white/80 hover:text-white" @click.stop="removeChip(value)" />
+              </span>
+            </template>
+          </MultiSelect>
           <div v-else class="flex flex-wrap gap-2">
             <template v-if="form.tagIds && form.tagIds.length > 0">
               <span

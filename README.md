@@ -1,6 +1,6 @@
 # 手写信封邮票组合收藏系统
 
-第三代视图框架配合组件库与样式工具的前端，轻量网框架配合本地关系型数据库的后端。用于管理手写信封上的邮票与邮戳收藏信息，以及邮戳图鉴的独立管理。
+第三代视图框架配合组件库与样式工具的前端，轻量网框架配合本地关系型数据库的后端。用于管理手写信封上的邮票与邮戳收藏信息、邮戳图鉴的独立管理，以及收藏标签的分类管理。
 
 ## 技术栈
 
@@ -18,6 +18,7 @@
 - 字段：寄出地、目的地、年份、邮票描述、邮戳类型、品相
 - 完整增删改查，首次启动自动写入 5 条示例数据
 - **批量导入**：支持 CSV 文件批量导入收藏记录，含实时预览、表头校验、逐行校验与错误提示
+- **多标签绑定**：每个信封可绑定多个收藏标签，支持在新建/编辑时多选
 
 ### 邮戳图鉴
 
@@ -35,6 +36,23 @@
 | 方形纪念戳 | 方形 | 纪念活动与特殊事件 | 为纪念重大事件、节日或邮票发行而特制的方形邮戳，通常带有主题图案和纪念文字，具有收藏价值。 |
 | 风景日戳 | 圆形 | 旅游景点邮局 | 刻有当地风景名胜图案的特种日戳，常见于旅游景区邮局，兼具邮政功能与纪念意义，深受集邮爱好者喜爱。 |
 
+### 标签管理
+
+- 标签卡片式列表，可直观查看所有标签及对应颜色
+- 新建、重命名、删除标签
+- 字段：名称、颜色（10 种预设颜色可选）
+- 完整增删改查，首次启动自动写入 3 条预设标签
+- 独立路由、状态管理与接口层
+- 删除标签时自动解除所有信封上的该标签关联（级联删除）
+
+#### 预设标签示例
+
+| 名称 | 颜色 | 色值 |
+|------|------|------|
+| 珍品收藏 | 红色 | `#ef4444` |
+| 文革时期 | 橙色 | `#f59e0b` |
+| 生肖系列 | 绿色 | `#10b981` |
+
 ## 目录结构
 
 ```
@@ -48,16 +66,19 @@
     ├── src/
     │   ├── api/        # 接口层
     │   │   ├── envelope.js
-    │   │   └── postmark.js
+    │   │   ├── postmark.js
+    │   │   └── tag.js
     │   ├── stores/     # 状态管理
     │   │   ├── envelope.js
-    │   │   └── postmark.js
+    │   │   ├── postmark.js
+    │   │   └── tag.js
     │   ├── views/      # 页面组件
     │   │   ├── Dashboard.vue
     │   │   ├── EnvelopeList.vue
     │   │   ├── EnvelopeDetail.vue
     │   │   ├── PostmarkList.vue
-    │   │   └── PostmarkDetail.vue
+    │   │   ├── PostmarkDetail.vue
+    │   │   └── TagList.vue
     │   └── router/     # 路由配置
     │       └── index.js
     └── package.json
@@ -78,6 +99,7 @@ cd backend && python -m venv .venv && .venv\Scripts\activate && pip install -r r
 后端启动后访问：
 - 信封收藏：<http://localhost:4000/api/envelopes>
 - 邮戳图鉴：<http://localhost:4000/api/postmarks>
+- 标签管理：<http://localhost:4000/api/tags>
 - 收藏统计：<http://localhost:4000/api/envelopes/stats>
 
 ### 前端（一条命令开发启动）
@@ -104,10 +126,10 @@ cd frontend && npm install && npm run dev
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/envelopes` | 获取全部信封 |
-| GET | `/api/envelopes/:id` | 获取单条信封 |
-| POST | `/api/envelopes` | 新建信封 |
-| PUT | `/api/envelopes/:id` | 更新信封 |
+| GET | `/api/envelopes` | 获取全部信封（含关联标签列表） |
+| GET | `/api/envelopes/:id` | 获取单条信封（含关联标签列表） |
+| POST | `/api/envelopes` | 新建信封（支持 `tag_ids` 字段同时绑定标签） |
+| PUT | `/api/envelopes/:id` | 更新信封（支持 `tag_ids` 字段同时更新标签） |
 | DELETE | `/api/envelopes/:id` | 删除信封 |
 | GET | `/api/envelopes/stats` | 获取收藏统计数据（总数、按品相分组、按年代区间分组） |
 
@@ -121,16 +143,34 @@ cd frontend && npm install && npm run dev
 | PUT | `/api/postmarks/:id` | 更新邮戳 |
 | DELETE | `/api/postmarks/:id` | 删除邮戳 |
 
+### 标签管理接口
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/tags` | 获取全部标签 |
+| GET | `/api/tags/:id` | 获取单条标签 |
+| POST | `/api/tags` | 新建标签（请求体：`{ name, color? }`） |
+| PUT | `/api/tags/:id` | 更新标签（重命名/改色，请求体：`{ name, color? }`） |
+| DELETE | `/api/tags/:id` | 删除标签（级联删除所有信封关联） |
+
+### 信封标签绑定接口
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/envelopes/:id/tags` | 获取指定信封的所有标签 |
+| PUT | `/api/envelopes/:id/tags` | 全量更新信封的标签（请求体：`{ tag_ids: [1, 2, 3] }`） |
+
 ## 前端访问路径
 
 | 模块 | 路径 | 说明 |
 |------|------|------|
 | 收藏统计 | `/dashboard` | 收藏数据统计看板 |
 | 信封收藏 | `/` | 信封列表页 |
-| 信封收藏 | `/envelopes/new` | 新建信封 |
-| 信封收藏 | `/envelopes/:id` | 信封详情 |
-| 信封收藏 | `/envelopes/:id/edit` | 编辑信封 |
+| 信封收藏 | `/envelopes/new` | 新建信封（含标签多选） |
+| 信封收藏 | `/envelopes/:id` | 信封详情（含彩色标签展示） |
+| 信封收藏 | `/envelopes/:id/edit` | 编辑信封（含标签多选） |
 | 邮戳图鉴 | `/postmarks` | 邮戳列表页 |
 | 邮戳图鉴 | `/postmarks/new` | 新建邮戳 |
 | 邮戳图鉴 | `/postmarks/:id` | 邮戳详情 |
 | 邮戳图鉴 | `/postmarks/:id/edit` | 编辑邮戳 |
+| 标签管理 | `/tags` | 标签列表（新建、重命名、删除） |
