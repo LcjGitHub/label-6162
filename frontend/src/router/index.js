@@ -3,6 +3,7 @@ import EnvelopeList from '@/views/EnvelopeList.vue'
 import EnvelopeDetail from '@/views/EnvelopeDetail.vue'
 import PostmarkList from '@/views/PostmarkList.vue'
 import PostmarkDetail from '@/views/PostmarkDetail.vue'
+import TagList from '@/views/TagList.vue'
 import Dashboard from '@/views/Dashboard.vue'
 
 const router = createRouter({
@@ -17,6 +18,7 @@ const router = createRouter({
     { path: '/postmarks/new', name: 'postmark-create', component: PostmarkDetail, props: { mode: 'create' } },
     { path: '/postmarks/:id', name: 'postmark-detail', component: PostmarkDetail, props: (route) => ({ id: Number(route.params.id), mode: 'view' }) },
     { path: '/postmarks/:id/edit', name: 'postmark-edit', component: PostmarkDetail, props: (route) => ({ id: Number(route.params.id), mode: 'edit' }) },
+    { path: '/tags', name: 'tag-list', component: TagList },
   ],
 })
 

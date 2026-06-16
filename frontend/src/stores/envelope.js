@@ -63,7 +63,7 @@ export const useEnvelopeStore = defineStore('envelope', {
 
     /**
      * 新建信封。
-     * @param {Omit<Envelope, 'id'>} payload
+     * @param {Omit<Envelope, 'id'> & {tag_ids?: number[]}} payload
      * @returns {Promise<Envelope>}
      */
     async create(payload) {
@@ -84,7 +84,7 @@ export const useEnvelopeStore = defineStore('envelope', {
     /**
      * 更新信封。
      * @param {number} id
-     * @param {Omit<Envelope, 'id'>} payload
+     * @param {Omit<Envelope, 'id'> & {tag_ids?: number[]}} payload
      * @returns {Promise<Envelope>}
      */
     async update(id, payload) {

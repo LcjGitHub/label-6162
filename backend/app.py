@@ -69,6 +69,51 @@ def postmark_row_to_dict(row) -> dict:
     }
 
 
+def tag_row_to_dict(row) -> dict:
+    """
+     * 将标签 sqlite3.Row 转为 JSON 可序列化字典。
+     * @param {sqlite3.Row} row
+     * @returns {dict}
+     """
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "color": row["color"],
+        "created_at": row["created_at"] if "created_at" in row.keys() else None,
+    }
+
+
+def envelope_row_to_dict_with_tags(row, tags=None) -> dict:
+    """
+     * 将信封 sqlite3.Row 转为 JSON 可序列化字典，包含标签。
+     * @param {sqlite3.Row} row
+     * @param {list | None} tags
+     * @returns {dict}
+     """
+    d = envelope_row_to_dict(row)
+    d["tags"] = tags or []
+    return d
+
+
+def get_envelope_tags(conn, envelope_id: int) -> list:
+    """
+     * 获取指定信封的所有标签。
+     * @param {sqlite3.Connection} conn
+     * @param {int} envelope_id
+     * @returns {list}
+     """
+    rows = conn.execute(
+        """
+        SELECT t.* FROM tags t
+        INNER JOIN envelope_tags et ON t.id = et.tag_id
+        WHERE et.envelope_id = ?
+        ORDER BY t.id ASC
+        """,
+        (envelope_id,),
+    ).fetchall()
+    return [tag_row_to_dict(r) for r in rows]
+
+
 def validate_envelope_payload(data: dict) -> str | None:
     """
      * 校验信封请求体字段，返回错误信息或 None。
@@ -142,20 +187,24 @@ def envelope_stats():
 
 @app.route("/api/envelopes", methods=["GET"])
 def list_envelopes():
-    """获取全部信封收藏。"""
+    """获取全部信封收藏（含标签）。"""
     conn = get_connection()
     try:
         rows = conn.execute(
             "SELECT * FROM envelopes ORDER BY year DESC, id DESC"
         ).fetchall()
-        return jsonify([envelope_row_to_dict(r) for r in rows])
+        result = []
+        for row in rows:
+            tags = get_envelope_tags(conn, row["id"])
+            result.append(envelope_row_to_dict_with_tags(row, tags))
+        return jsonify(result)
     finally:
         conn.close()
 
 
 @app.route("/api/envelopes/<int:envelope_id>", methods=["GET"])
 def get_envelope(envelope_id: int):
-    """获取单条信封详情。"""
+    """获取单条信封详情（含标签）。"""
     conn = get_connection()
     try:
         row = conn.execute(
@@ -163,18 +212,21 @@ def get_envelope(envelope_id: int):
         ).fetchone()
         if row is None:
             return jsonify({"error": "记录不存在"}), 404
-        return jsonify(envelope_row_to_dict(row))
+        tags = get_envelope_tags(conn, envelope_id)
+        return jsonify(envelope_row_to_dict_with_tags(row, tags))
     finally:
         conn.close()
 
 
 @app.route("/api/envelopes", methods=["POST"])
 def create_envelope():
-    """新建信封收藏。"""
+    """新建信封收藏（可同时指定标签ID列表）。"""
     data = request.get_json(silent=True) or {}
     error = validate_envelope_payload(data)
     if error:
         return jsonify({"error": error}), 400
+
+    tag_ids = data.get("tag_ids", []) or []
 
     conn = get_connection()
     try:
@@ -193,22 +245,37 @@ def create_envelope():
                 data["condition"],
             ),
         )
+        envelope_id = cursor.lastrowid
+
+        for tag_id in tag_ids:
+            try:
+                conn.execute(
+                    "INSERT OR IGNORE INTO envelope_tags (envelope_id, tag_id) VALUES (?, ?)",
+                    (envelope_id, tag_id),
+                )
+            except Exception:
+                pass
+
         conn.commit()
+
         row = conn.execute(
-            "SELECT * FROM envelopes WHERE id = ?", (cursor.lastrowid,)
+            "SELECT * FROM envelopes WHERE id = ?", (envelope_id,)
         ).fetchone()
-        return jsonify(envelope_row_to_dict(row)), 201
+        tags = get_envelope_tags(conn, envelope_id)
+        return jsonify(envelope_row_to_dict_with_tags(row, tags)), 201
     finally:
         conn.close()
 
 
 @app.route("/api/envelopes/<int:envelope_id>", methods=["PUT"])
 def update_envelope(envelope_id: int):
-    """更新信封收藏。"""
+    """更新信封收藏（可同时更新标签ID列表）。"""
     data = request.get_json(silent=True) or {}
     error = validate_envelope_payload(data)
     if error:
         return jsonify({"error": error}), 400
+
+    tag_ids = data.get("tag_ids", None)
 
     conn = get_connection()
     try:
@@ -239,11 +306,27 @@ def update_envelope(envelope_id: int):
                 envelope_id,
             ),
         )
+
+        if tag_ids is not None:
+            conn.execute(
+                "DELETE FROM envelope_tags WHERE envelope_id = ?",
+                (envelope_id,),
+            )
+            for tag_id in tag_ids:
+                try:
+                    conn.execute(
+                        "INSERT OR IGNORE INTO envelope_tags (envelope_id, tag_id) VALUES (?, ?)",
+                        (envelope_id, tag_id),
+                    )
+                except Exception:
+                    pass
+
         conn.commit()
         row = conn.execute(
             "SELECT * FROM envelopes WHERE id = ?", (envelope_id,)
         ).fetchone()
-        return jsonify(envelope_row_to_dict(row))
+        tags = get_envelope_tags(conn, envelope_id)
+        return jsonify(envelope_row_to_dict_with_tags(row, tags))
     finally:
         conn.close()
 
@@ -505,6 +588,192 @@ def delete_postmark(postmark_id: int):
         if cursor.rowcount == 0:
             return jsonify({"error": "记录不存在"}), 404
         return jsonify({"message": "已删除"})
+    finally:
+        conn.close()
+
+
+TAG_REQUIRED_FIELDS = ("name",)
+
+
+def validate_tag_payload(data: dict) -> str | None:
+    """
+     * 校验标签请求体字段，返回错误信息或 None。
+     * @param {dict} data
+     * @returns {str | None}
+     """
+    if not data:
+        return "请求体不能为空"
+    for field in TAG_REQUIRED_FIELDS:
+        if field not in data or data[field] in (None, ""):
+            return f"缺少必填字段：{field}"
+    if len(data["name"].strip()) > 50:
+        return "标签名称不能超过 50 个字符"
+    return None
+
+
+@app.route("/api/tags", methods=["GET"])
+def list_tags():
+    """获取全部标签。"""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM tags ORDER BY id ASC"
+        ).fetchall()
+        return jsonify([tag_row_to_dict(r) for r in rows])
+    finally:
+        conn.close()
+
+
+@app.route("/api/tags/<int:tag_id>", methods=["GET"])
+def get_tag(tag_id: int):
+    """获取单条标签详情。"""
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT * FROM tags WHERE id = ?", (tag_id,)
+        ).fetchone()
+        if row is None:
+            return jsonify({"error": "标签不存在"}), 404
+        return jsonify(tag_row_to_dict(row))
+    finally:
+        conn.close()
+
+
+@app.route("/api/tags", methods=["POST"])
+def create_tag():
+    """新建标签。"""
+    data = request.get_json(silent=True) or {}
+    error = validate_tag_payload(data)
+    if error:
+        return jsonify({"error": error}), 400
+
+    conn = get_connection()
+    try:
+        color = data.get("color", "#6366f1") or "#6366f1"
+        name = data["name"].strip()
+
+        existing = conn.execute(
+            "SELECT id FROM tags WHERE name = ?", (name,)
+        ).fetchone()
+        if existing:
+            return jsonify({"error": "标签名称已存在"}), 409
+
+        cursor = conn.execute(
+            "INSERT INTO tags (name, color) VALUES (?, ?)",
+            (name, color),
+        )
+        conn.commit()
+
+        row = conn.execute(
+            "SELECT * FROM tags WHERE id = ?", (cursor.lastrowid,)
+        ).fetchone()
+        return jsonify(tag_row_to_dict(row)), 201
+    finally:
+        conn.close()
+
+
+@app.route("/api/tags/<int:tag_id>", methods=["PUT"])
+def update_tag(tag_id: int):
+    """更新标签。"""
+    data = request.get_json(silent=True) or {}
+    error = validate_tag_payload(data)
+    if error:
+        return jsonify({"error": error}), 400
+
+    conn = get_connection()
+    try:
+        existing = conn.execute(
+            "SELECT id FROM tags WHERE id = ?", (tag_id,)
+        ).fetchone()
+        if existing is None:
+            return jsonify({"error": "标签不存在"}), 404
+
+        name = data["name"].strip()
+        color = data.get("color", "#6366f1") or "#6366f1"
+
+        duplicate = conn.execute(
+            "SELECT id FROM tags WHERE name = ? AND id != ?",
+            (name, tag_id),
+        ).fetchone()
+        if duplicate:
+            return jsonify({"error": "标签名称已存在"}), 409
+
+        conn.execute(
+            "UPDATE tags SET name = ?, color = ? WHERE id = ?",
+            (name, color, tag_id),
+        )
+        conn.commit()
+
+        row = conn.execute(
+            "SELECT * FROM tags WHERE id = ?", (tag_id,)
+        ).fetchone()
+        return jsonify(tag_row_to_dict(row))
+    finally:
+        conn.close()
+
+
+@app.route("/api/tags/<int:tag_id>", methods=["DELETE"])
+def delete_tag(tag_id: int):
+    """删除标签（同时删除所有关联）。"""
+    conn = get_connection()
+    try:
+        cursor = conn.execute(
+            "DELETE FROM tags WHERE id = ?", (tag_id,)
+        )
+        conn.commit()
+        if cursor.rowcount == 0:
+            return jsonify({"error": "标签不存在"}), 404
+        return jsonify({"message": "已删除"})
+    finally:
+        conn.close()
+
+
+@app.route("/api/envelopes/<int:envelope_id>/tags", methods=["GET"])
+def get_envelope_tags_route(envelope_id: int):
+    """获取指定信封的所有标签。"""
+    conn = get_connection()
+    try:
+        existing = conn.execute(
+            "SELECT id FROM envelopes WHERE id = ?", (envelope_id,)
+        ).fetchone()
+        if existing is None:
+            return jsonify({"error": "信封不存在"}), 404
+        tags = get_envelope_tags(conn, envelope_id)
+        return jsonify(tags)
+    finally:
+        conn.close()
+
+
+@app.route("/api/envelopes/<int:envelope_id>/tags", methods=["PUT"])
+def update_envelope_tags(envelope_id: int):
+    """更新信封的标签（全量替换）。"""
+    data = request.get_json(silent=True) or {}
+    tag_ids = data.get("tag_ids", []) or []
+
+    conn = get_connection()
+    try:
+        existing = conn.execute(
+            "SELECT id FROM envelopes WHERE id = ?", (envelope_id,)
+        ).fetchone()
+        if existing is None:
+            return jsonify({"error": "信封不存在"}), 404
+
+        conn.execute(
+            "DELETE FROM envelope_tags WHERE envelope_id = ?",
+            (envelope_id,),
+        )
+        for tag_id in tag_ids:
+            try:
+                conn.execute(
+                    "INSERT OR IGNORE INTO envelope_tags (envelope_id, tag_id) VALUES (?, ?)",
+                    (envelope_id, tag_id),
+                )
+            except Exception:
+                pass
+
+        conn.commit()
+        tags = get_envelope_tags(conn, envelope_id)
+        return jsonify(tags)
     finally:
         conn.close()
 

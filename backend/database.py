@@ -21,7 +21,7 @@ def get_connection() -> sqlite3.Connection:
 
 def init_db() -> None:
     """
-     * 创建信封表和邮戳表（若不存在）。
+     * 创建信封表、邮戳表、标签表和信封标签关联表（若不存在）。
      * @returns {None}
      """
     conn = get_connection()
@@ -47,6 +47,29 @@ def init_db() -> None:
                 shape TEXT NOT NULL,
                 common_use TEXT NOT NULL,
                 description TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS tags (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                color TEXT DEFAULT '#6366f1',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS envelope_tags (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                envelope_id INTEGER NOT NULL,
+                tag_id INTEGER NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (envelope_id) REFERENCES envelopes(id) ON DELETE CASCADE,
+                FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE,
+                UNIQUE(envelope_id, tag_id)
             )
             """
         )

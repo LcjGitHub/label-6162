@@ -67,10 +67,16 @@ POSTMARK_SEED_DATA = [
     },
 ]
 
+TAG_SEED_DATA = [
+    {"name": "珍品收藏", "color": "#ef4444"},
+    {"name": "文革时期", "color": "#f59e0b"},
+    {"name": "生肖系列", "color": "#10b981"},
+]
+
 
 def seed() -> None:
     """
-     * 若表为空则写入种子数据（信封 + 邮戳）。
+     * 若表为空则写入种子数据（信封 + 邮戳 + 标签 + 信封标签关联）。
      * @returns {None}
      """
     init_db()
@@ -111,6 +117,43 @@ def seed() -> None:
                         row["description"],
                     ),
                 )
+
+        count = conn.execute("SELECT COUNT(*) AS c FROM tags").fetchone()["c"]
+        if count == 0:
+            for row in TAG_SEED_DATA:
+                conn.execute(
+                    """
+                    INSERT INTO tags (name, color)
+                    VALUES (?, ?)
+                    """,
+                    (row["name"], row["color"]),
+                )
+            tag_rows = conn.execute("SELECT id, name FROM tags ORDER BY id").fetchall()
+            tag_map = {r["name"]: r["id"] for r in tag_rows}
+
+            env_rows = conn.execute("SELECT id, origin, destination FROM envelopes ORDER BY id").fetchall()
+            if len(env_rows) >= 3:
+                conn.execute(
+                    "INSERT INTO envelope_tags (envelope_id, tag_id) VALUES (?, ?)",
+                    (env_rows[0]["id"], tag_map["珍品收藏"]),
+                )
+                conn.execute(
+                    "INSERT INTO envelope_tags (envelope_id, tag_id) VALUES (?, ?)",
+                    (env_rows[0]["id"], tag_map["文革时期"]),
+                )
+                conn.execute(
+                    "INSERT INTO envelope_tags (envelope_id, tag_id) VALUES (?, ?)",
+                    (env_rows[1]["id"], tag_map["珍品收藏"]),
+                )
+                conn.execute(
+                    "INSERT INTO envelope_tags (envelope_id, tag_id) VALUES (?, ?)",
+                    (env_rows[2]["id"], tag_map["文革时期"]),
+                )
+                if len(env_rows) >= 5:
+                    conn.execute(
+                        "INSERT INTO envelope_tags (envelope_id, tag_id) VALUES (?, ?)",
+                        (env_rows[4]["id"], tag_map["生肖系列"]),
+                    )
 
         conn.commit()
     finally:

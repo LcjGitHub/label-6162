@@ -8,9 +8,11 @@ import InputNumber from 'primevue/inputnumber'
 import Select from 'primevue/select'
 import Textarea from 'primevue/textarea'
 import Tag from 'primevue/tag'
+import MultiSelect from 'primevue/multiselect'
 import ProgressSpinner from 'primevue/progressspinner'
 import Toast from 'primevue/toast'
 import { useEnvelopeStore } from '@/stores/envelope'
+import { useTagStore } from '@/stores/tag'
 
 const props = defineProps({
   id: { type: Number, default: null },
@@ -20,6 +22,7 @@ const props = defineProps({
 const router = useRouter()
 const toast = useToast()
 const store = useEnvelopeStore()
+const tagStore = useTagStore()
 
 /** 是否处于可编辑状态 */
 const editing = computed(() => props.mode === 'create' || props.mode === 'edit')
@@ -35,6 +38,15 @@ const form = reactive({
   stamp_description: '',
   postmark_type: '圆形日戳',
   condition: '良好',
+  tagIds: [],
+})
+
+const tagOptions = computed(() => {
+  return tagStore.items.map((t) => ({
+    label: t.name,
+    value: t.id,
+    color: t.color,
+  }))
 })
 
 const pageTitle = computed(() => {
@@ -51,6 +63,12 @@ const conditionSeverity = {
 }
 
 onMounted(async () => {
+  try {
+    await tagStore.fetchAll()
+  } catch {
+    toast.add({ severity: 'warn', summary: '标签加载失败', detail: tagStore.error, life: 4000 })
+  }
+
   if (props.mode === 'create') return
   try {
     const data = await store.fetchOne(props.id)
@@ -61,6 +79,7 @@ onMounted(async () => {
       stamp_description: data.stamp_description,
       postmark_type: data.postmark_type,
       condition: data.condition,
+      tagIds: (data.tags || []).map((t) => t.id),
     })
   } catch {
     toast.add({ severity: 'error', summary: '加载失败', detail: store.error, life: 4000 })
@@ -93,7 +112,7 @@ async function save() {
     toast.add({ severity: 'warn', summary: '请填写完整信息', life: 3000 })
     return
   }
-  const payload = { ...form, year: Number(form.year) }
+  const payload = { ...form, year: Number(form.year), tag_ids: form.tagIds }
   try {
     if (props.mode === 'create') {
       const created = await store.create(payload)
@@ -121,6 +140,15 @@ function startEdit() {
  */
 function goBack() {
   router.push({ name: 'list' })
+}
+
+/**
+ * 根据标签ID获取标签信息。
+ * @param {number} tagId
+ * @returns {{id: number, name: string, color: string} | undefined}
+ */
+function getTagById(tagId) {
+  return tagStore.items.find((t) => t.id === tagId)
 }
 </script>
 
@@ -215,6 +243,34 @@ function goBack() {
             placeholder="选择品相"
           />
           <Tag v-else :value="form.condition" :severity="conditionSeverity[form.condition] || 'secondary'" />
+        </div>
+
+        <div class="flex flex-col gap-2 md:col-span-2">
+          <label class="text-sm font-medium text-slate-700">标签</label>
+          <MultiSelect
+            v-if="editing"
+            v-model="form.tagIds"
+            :options="tagOptions"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="选择标签（可多选）"
+            display="chip"
+            :maxSelectedLabels="5"
+            :selectedItemsLabel="selectedCount => `已选 ${selectedCount} 个`"
+          />
+          <div v-else class="flex flex-wrap gap-2">
+            <template v-if="form.tagIds && form.tagIds.length > 0">
+              <span
+                v-for="tagId in form.tagIds"
+                :key="tagId"
+                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white"
+                :style="{ backgroundColor: getTagById(tagId)?.color || '#6b7280' }"
+              >
+                {{ getTagById(tagId)?.name || '未知标签' }}
+              </span>
+            </template>
+            <span v-else class="text-slate-400 text-sm">暂无标签</span>
+          </div>
         </div>
       </div>
     </div>

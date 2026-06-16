@@ -7,6 +7,7 @@ const route = useRoute()
 const activeTab = computed(() => {
   if (route.name === 'dashboard') return 'dashboard'
   if (route.name?.startsWith('postmark')) return 'postmark'
+  if (route.name?.startsWith('tag')) return 'tag'
   return 'envelope'
 })
 </script>
@@ -46,6 +47,14 @@ const activeTab = computed(() => {
           >
             <i class="pi pi-bookmark mr-2" />
             邮戳图鉴
+          </router-link>
+          <router-link
+            :to="{ name: 'tag-list' }"
+            class="px-4 py-2 text-sm font-medium transition-colors"
+            :class="activeTab === 'tag' ? 'border-b-2 border-amber-600 text-amber-700 -mb-px' : 'text-slate-500 hover:text-slate-700'"
+          >
+            <i class="pi pi-tags mr-2" />
+            标签管理
           </router-link>
         </nav>
       </div>
