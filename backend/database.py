@@ -35,10 +35,16 @@ def init_db() -> None:
                 year INTEGER NOT NULL,
                 stamp_description TEXT NOT NULL,
                 postmark_type TEXT NOT NULL,
-                condition TEXT NOT NULL
+                condition TEXT NOT NULL,
+                remark TEXT
             )
             """
         )
+        try:
+            conn.execute("ALTER TABLE envelopes ADD COLUMN remark TEXT")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS postmarks (

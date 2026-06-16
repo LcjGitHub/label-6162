@@ -10,6 +10,7 @@ import api, { importEnvelopes } from '@/api/envelope'
  * @property {string} stamp_description - 邮票描述
  * @property {string} postmark_type - 邮戳类型
  * @property {string} condition - 品相
+ * @property {string} remark - 备注
  */
 
 export const useEnvelopeStore = defineStore('envelope', {

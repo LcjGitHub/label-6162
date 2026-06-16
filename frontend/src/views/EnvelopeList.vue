@@ -50,6 +50,7 @@ const displayItems = computed(() => {
       item.stamp_description,
       item.postmark_type,
       item.condition,
+      item.remark || '',
     ].some((v) => v.toLowerCase().includes(keyword))
   )
   filteredCount.value = result.length
@@ -307,6 +308,16 @@ function downloadTemplate() {
       <Column field="condition" header="品相" sortable style="width: 100px">
         <template #body="{ data }">
           <Tag :value="data.condition" :severity="conditionSeverity[data.condition] || 'secondary'" />
+        </template>
+      </Column>
+      <Column field="remark" header="备注" sortable style="min-width: 180px">
+        <template #body="{ data }">
+          <span
+            class="block max-w-[200px] truncate"
+            :title="data.remark || ''"
+          >
+            {{ data.remark || '-' }}
+          </span>
         </template>
       </Column>
       <Column header="操作" style="width: 180px">

@@ -38,6 +38,7 @@ const form = reactive({
   stamp_description: '',
   postmark_type: '圆形日戳',
   condition: '良好',
+  remark: '',
   tagIds: [],
 })
 
@@ -79,6 +80,7 @@ onMounted(async () => {
       stamp_description: data.stamp_description,
       postmark_type: data.postmark_type,
       condition: data.condition,
+      remark: data.remark || '',
       tagIds: (data.tags || []).map((t) => t.id),
     })
   } catch {
@@ -261,6 +263,18 @@ function removeChip(tagId) {
             placeholder="选择品相"
           />
           <Tag v-else :value="form.condition" :severity="conditionSeverity[form.condition] || 'secondary'" />
+        </div>
+
+        <div class="flex flex-col gap-2 md:col-span-2">
+          <label class="text-sm font-medium text-slate-700">备注</label>
+          <Textarea
+            v-if="editing"
+            v-model="form.remark"
+            rows="3"
+            placeholder="填写备注信息（可选，最多 1000 字符）"
+            :maxlength="1000"
+          />
+          <p v-else class="text-slate-900 whitespace-pre-wrap">{{ form.remark || '-' }}</p>
         </div>
 
         <div class="flex flex-col gap-2 md:col-span-2">

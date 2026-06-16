@@ -10,6 +10,7 @@ ENVELOPE_SEED_DATA = [
         "stamp_description": "纪1 庆祝中国人民政治协商会议成立",
         "postmark_type": "圆形日戳",
         "condition": "良好",
+        "remark": "新中国成立初期的珍贵邮品，保存完好，票色鲜艳",
     },
     {
         "origin": "广州",
@@ -18,6 +19,7 @@ ENVELOPE_SEED_DATA = [
         "stamp_description": "特50 中国古代建筑——故宫",
         "postmark_type": "方形纪念戳",
         "condition": "优秀",
+        "remark": "文革前发行的建筑主题邮票，盖有广州海关特殊纪念戳",
     },
     {
         "origin": "成都",
@@ -26,6 +28,7 @@ ENVELOPE_SEED_DATA = [
         "stamp_description": "T38 万里长城",
         "postmark_type": "圆形日戳",
         "condition": "一般",
+        "remark": "改革开放初期的实寄封，信封有轻微折痕但邮票完整",
     },
     {
         "origin": "南京",
@@ -34,6 +37,7 @@ ENVELOPE_SEED_DATA = [
         "stamp_description": "J151 中国妇女",
         "postmark_type": "风景日戳",
         "condition": "良好",
+        "remark": "",
     },
     {
         "origin": "西安",
@@ -42,6 +46,7 @@ ENVELOPE_SEED_DATA = [
         "stamp_description": "1996-1 丙子年（鼠）",
         "postmark_type": "圆形日戳",
         "condition": "优秀",
+        "remark": "第二轮生肖邮票首年，加盖西安钟楼邮局日戳",
     },
 ]
 
@@ -88,8 +93,8 @@ def seed() -> None:
                 conn.execute(
                     """
                     INSERT INTO envelopes
-                        (origin, destination, year, stamp_description, postmark_type, condition)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                        (origin, destination, year, stamp_description, postmark_type, condition, remark)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         row["origin"],
@@ -98,6 +103,7 @@ def seed() -> None:
                         row["stamp_description"],
                         row["postmark_type"],
                         row["condition"],
+                        row["remark"],
                     ),
                 )
 

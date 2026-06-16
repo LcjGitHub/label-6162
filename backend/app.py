@@ -27,6 +27,7 @@ ENVELOPE_FIELD_LABELS = {
     "stamp_description": "邮票描述",
     "postmark_type": "邮戳类型",
     "condition": "品相",
+    "remark": "备注",
 }
 
 POSTMARK_REQUIRED_FIELDS = (
@@ -51,6 +52,7 @@ def envelope_row_to_dict(row) -> dict:
         "stamp_description": row["stamp_description"],
         "postmark_type": row["postmark_type"],
         "condition": row["condition"],
+        "remark": row["remark"] if "remark" in row.keys() and row["remark"] is not None else "",
     }
 
 
@@ -131,6 +133,8 @@ def validate_envelope_payload(data: dict) -> str | None:
             return "年份范围应在 1800–2100 之间"
     except (TypeError, ValueError):
         return "年份必须为整数"
+    if "remark" in data and data["remark"] is not None and len(str(data["remark"])) > 1000:
+        return "备注长度不能超过 1000 个字符"
     return None
 
 
@@ -227,14 +231,15 @@ def create_envelope():
         return jsonify({"error": error}), 400
 
     tag_ids = data.get("tag_ids", []) or []
+    remark = data.get("remark", "") or ""
 
     conn = get_connection()
     try:
         cursor = conn.execute(
             """
             INSERT INTO envelopes
-                (origin, destination, year, stamp_description, postmark_type, condition)
-            VALUES (?, ?, ?, ?, ?, ?)
+                (origin, destination, year, stamp_description, postmark_type, condition, remark)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 data["origin"],
@@ -243,6 +248,7 @@ def create_envelope():
                 data["stamp_description"],
                 data["postmark_type"],
                 data["condition"],
+                remark,
             ),
         )
         envelope_id = cursor.lastrowid
@@ -276,6 +282,7 @@ def update_envelope(envelope_id: int):
         return jsonify({"error": error}), 400
 
     tag_ids = data.get("tag_ids", None)
+    remark = data.get("remark", "") or ""
 
     conn = get_connection()
     try:
@@ -293,7 +300,8 @@ def update_envelope(envelope_id: int):
                 year = ?,
                 stamp_description = ?,
                 postmark_type = ?,
-                condition = ?
+                condition = ?,
+                remark = ?
             WHERE id = ?
             """,
             (
@@ -303,6 +311,7 @@ def update_envelope(envelope_id: int):
                 data["stamp_description"],
                 data["postmark_type"],
                 data["condition"],
+                remark,
                 envelope_id,
             ),
         )
