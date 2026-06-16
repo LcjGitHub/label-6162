@@ -27,6 +27,7 @@ const selectedFile = ref(null)
 const previewRows = ref([])
 const previewHeaders = ref([])
 const fileParseError = ref('')
+const isHeaderError = ref(false)
 const importing = ref(false)
 
 const CSV_HEADERS = ['寄出地', '目的地', '年份', '邮票描述', '邮戳类型', '品相']
@@ -155,6 +156,7 @@ async function handleFileSelect(event) {
   if (!file) return
   selectedFile.value = file
   fileParseError.value = ''
+  isHeaderError.value = false
   previewHeaders.value = []
   previewRows.value = []
 
@@ -169,7 +171,8 @@ async function handleFileSelect(event) {
     const headerTrimmed = headerLine.map((h) => h.trim())
 
     if (headerTrimmed.length !== CSV_HEADERS.length || !headerTrimmed.every((h, i) => h === CSV_HEADERS[i])) {
-      fileParseError.value = `表头格式不正确，应为：${CSV_HEADERS.join('、')}\n实际表头：${headerTrimmed.join('、')}`
+      fileParseError.value = '表头格式不正确，请与下方期望表头对比后修正文件'
+      isHeaderError.value = true
       previewHeaders.value = headerTrimmed
       previewRows.value = allLines.slice(1, 6).map(parseCSVLine)
       return
@@ -190,6 +193,7 @@ function openImportDialog() {
   previewRows.value = []
   previewHeaders.value = []
   fileParseError.value = ''
+  isHeaderError.value = false
   const fileInput = document.getElementById('csv-file-input')
   if (fileInput) fileInput.value = ''
 }
@@ -373,7 +377,62 @@ function downloadTemplate() {
           <p class="font-medium">⚠️ {{ fileParseError }}</p>
         </div>
 
-        <div v-if="previewHeaders.length > 0" class="space-y-2">
+        <div v-if="isHeaderError" class="space-y-2">
+          <p class="text-sm font-medium text-slate-700">表头对比：</p>
+          <div class="overflow-x-auto rounded-md border border-red-200">
+            <table class="min-w-full text-sm">
+              <thead class="bg-red-50">
+                <tr>
+                  <th class="px-3 py-2 text-left font-medium text-red-700 border-b border-red-200 w-24">类型</th>
+                  <th
+                    v-for="(h, i) in CSV_HEADERS"
+                    :key="'exp-' + i"
+                    class="px-3 py-2 text-left font-medium text-red-700 border-b border-red-200"
+                  >
+                    第 {{ i + 1 }} 列
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="bg-green-50">
+                  <td class="px-3 py-2 font-medium text-green-700 border-b border-slate-100">期望表头</td>
+                  <td
+                    v-for="(h, i) in CSV_HEADERS"
+                    :key="'exph-' + i"
+                    class="px-3 py-2 text-green-700 border-b border-slate-100"
+                  >
+                    <span class="font-medium">{{ h }}</span>
+                  </td>
+                </tr>
+                <tr class="bg-red-50">
+                  <td class="px-3 py-2 font-medium text-red-700 border-b border-slate-100">实际表头</td>
+                  <template v-if="previewHeaders.length > 0">
+                    <td
+                      v-for="(h, i) in previewHeaders"
+                      :key="'acth-' + i"
+                      class="px-3 py-2 text-red-700 border-b border-slate-100"
+                    >
+                      <span v-if="h === CSV_HEADERS[i]" class="text-green-600">{{ h }}</span>
+                      <span v-else class="font-medium">{{ h || '(空)' }}</span>
+                    </td>
+                    <td
+                      v-for="i in (CSV_HEADERS.length - previewHeaders.length)"
+                      :key="'miss-' + i"
+                      class="px-3 py-2 text-red-400 border-b border-slate-100 italic"
+                    >
+                      （缺失）
+                    </td>
+                  </template>
+                  <td v-else class="px-3 py-2 text-slate-500 border-b border-slate-100 italic" :colspan="CSV_HEADERS.length">
+                    无法解析表头
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div v-if="previewHeaders.length > 0 && !isHeaderError" class="space-y-2">
           <p class="text-sm font-medium text-slate-700">文件预览（最多显示前 10 行）：</p>
           <div class="overflow-x-auto rounded-md border border-slate-200 max-h-64 overflow-y-auto">
             <table class="min-w-full text-sm">

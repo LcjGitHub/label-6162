@@ -20,6 +20,15 @@ ENVELOPE_REQUIRED_FIELDS = (
     "condition",
 )
 
+ENVELOPE_FIELD_LABELS = {
+    "origin": "寄出地",
+    "destination": "目的地",
+    "year": "年份",
+    "stamp_description": "邮票描述",
+    "postmark_type": "邮戳类型",
+    "condition": "品相",
+}
+
 POSTMARK_REQUIRED_FIELDS = (
     "name",
     "shape",
@@ -70,11 +79,11 @@ def validate_envelope_payload(data: dict) -> str | None:
         return "请求体不能为空"
     for field in ENVELOPE_REQUIRED_FIELDS:
         if field not in data or data[field] in (None, ""):
-            return f"缺少必填字段: {field}"
+            return f"缺少必填字段：{ENVELOPE_FIELD_LABELS[field]}"
     try:
         year = int(data["year"])
         if year < 1800 or year > 2100:
-            return "年份范围应在 1800–2100"
+            return "年份范围应在 1800–2100 之间"
     except (TypeError, ValueError):
         return "年份必须为整数"
     return None
@@ -267,7 +276,7 @@ def validate_csv_row(row_values: list[str], line_no: int) -> tuple[dict | None, 
     * @returns {tuple[dict | None, str | None]}
     """
     if len(row_values) != 6:
-        return None, f"第 {line_no} 行：列数应为 6 列，实际 {len(row_values)} 列"
+        return None, f"列数应为 6 列，实际 {len(row_values)} 列"
 
     data = {}
     for field, value in zip(CSV_FIELDS, row_values):
@@ -275,7 +284,7 @@ def validate_csv_row(row_values: list[str], line_no: int) -> tuple[dict | None, 
 
     error = validate_envelope_payload(data)
     if error:
-        return None, f"第 {line_no} 行：{error}"
+        return None, error
 
     data["year"] = int(data["year"])
     return data, None
@@ -329,6 +338,7 @@ def import_envelopes():
     data_rows = rows[1:]
     valid_records = []
     failed_lines = []
+    failed_row_numbers = []
 
     for idx, row in enumerate(data_rows):
         line_no = idx + 2
@@ -337,14 +347,15 @@ def import_envelopes():
             continue
         record, err = validate_csv_row(row, line_no)
         if err:
-            failed_lines.append(err)
+            failed_lines.append(f"第 {line_no} 行：{err}")
+            failed_row_numbers.append(line_no)
         else:
-            valid_records.append(record)
+            valid_records.append((line_no, record))
 
     success_count = 0
     conn = get_connection()
     try:
-        for rec in valid_records:
+        for line_no, rec in valid_records:
             try:
                 conn.execute(
                     """
@@ -363,7 +374,8 @@ def import_envelopes():
                 )
                 success_count += 1
             except Exception as e:
-                failed_lines.append(f"数据库写入失败：{str(e)}，数据：{rec}")
+                failed_lines.append(f"第 {line_no} 行：数据库写入失败：{str(e)}")
+                failed_row_numbers.append(line_no)
         conn.commit()
     finally:
         conn.close()
@@ -373,7 +385,7 @@ def import_envelopes():
             "success": success_count,
             "failed_count": len(failed_lines),
             "failed_lines": failed_lines,
-            "total": len(valid_records) + sum(1 for _ in []),
+            "failed_row_numbers": failed_row_numbers,
             "processed": len(data_rows),
         }
     )
