@@ -21,7 +21,7 @@ def get_connection() -> sqlite3.Connection:
 
 def init_db() -> None:
     """
-     * 创建信封表（若不存在）。
+     * 创建信封表和邮戳表（若不存在）。
      * @returns {None}
      """
     conn = get_connection()
@@ -36,6 +36,17 @@ def init_db() -> None:
                 stamp_description TEXT NOT NULL,
                 postmark_type TEXT NOT NULL,
                 condition TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS postmarks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                shape TEXT NOT NULL,
+                common_use TEXT NOT NULL,
+                description TEXT NOT NULL
             )
             """
         )

@@ -7,7 +7,7 @@ from seed import seed
 
 app = Flask(__name__)
 
-REQUIRED_FIELDS = (
+ENVELOPE_REQUIRED_FIELDS = (
     "origin",
     "destination",
     "year",
@@ -16,10 +16,17 @@ REQUIRED_FIELDS = (
     "condition",
 )
 
+POSTMARK_REQUIRED_FIELDS = (
+    "name",
+    "shape",
+    "common_use",
+    "description",
+)
 
-def row_to_dict(row) -> dict:
+
+def envelope_row_to_dict(row) -> dict:
     """
-     * 将 sqlite3.Row 转为 JSON 可序列化字典。
+     * 将信封 sqlite3.Row 转为 JSON 可序列化字典。
      * @param {sqlite3.Row} row
      * @returns {dict}
      """
@@ -34,15 +41,30 @@ def row_to_dict(row) -> dict:
     }
 
 
-def validate_payload(data: dict) -> str | None:
+def postmark_row_to_dict(row) -> dict:
     """
-     * 校验请求体字段，返回错误信息或 None。
+     * 将邮戳 sqlite3.Row 转为 JSON 可序列化字典。
+     * @param {sqlite3.Row} row
+     * @returns {dict}
+     """
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "shape": row["shape"],
+        "common_use": row["common_use"],
+        "description": row["description"],
+    }
+
+
+def validate_envelope_payload(data: dict) -> str | None:
+    """
+     * 校验信封请求体字段，返回错误信息或 None。
      * @param {dict} data
      * @returns {str | None}
      """
     if not data:
         return "请求体不能为空"
-    for field in REQUIRED_FIELDS:
+    for field in ENVELOPE_REQUIRED_FIELDS:
         if field not in data or data[field] in (None, ""):
             return f"缺少必填字段: {field}"
     try:
@@ -54,6 +76,20 @@ def validate_payload(data: dict) -> str | None:
     return None
 
 
+def validate_postmark_payload(data: dict) -> str | None:
+    """
+     * 校验邮戳请求体字段，返回错误信息或 None。
+     * @param {dict} data
+     * @returns {str | None}
+     """
+    if not data:
+        return "请求体不能为空"
+    for field in POSTMARK_REQUIRED_FIELDS:
+        if field not in data or data[field] in (None, ""):
+            return f"缺少必填字段: {field}"
+    return None
+
+
 @app.route("/api/envelopes", methods=["GET"])
 def list_envelopes():
     """获取全部信封收藏。"""
@@ -62,7 +98,7 @@ def list_envelopes():
         rows = conn.execute(
             "SELECT * FROM envelopes ORDER BY year DESC, id DESC"
         ).fetchall()
-        return jsonify([row_to_dict(r) for r in rows])
+        return jsonify([envelope_row_to_dict(r) for r in rows])
     finally:
         conn.close()
 
@@ -77,7 +113,7 @@ def get_envelope(envelope_id: int):
         ).fetchone()
         if row is None:
             return jsonify({"error": "记录不存在"}), 404
-        return jsonify(row_to_dict(row))
+        return jsonify(envelope_row_to_dict(row))
     finally:
         conn.close()
 
@@ -86,7 +122,7 @@ def get_envelope(envelope_id: int):
 def create_envelope():
     """新建信封收藏。"""
     data = request.get_json(silent=True) or {}
-    error = validate_payload(data)
+    error = validate_envelope_payload(data)
     if error:
         return jsonify({"error": error}), 400
 
@@ -111,7 +147,7 @@ def create_envelope():
         row = conn.execute(
             "SELECT * FROM envelopes WHERE id = ?", (cursor.lastrowid,)
         ).fetchone()
-        return jsonify(row_to_dict(row)), 201
+        return jsonify(envelope_row_to_dict(row)), 201
     finally:
         conn.close()
 
@@ -120,7 +156,7 @@ def create_envelope():
 def update_envelope(envelope_id: int):
     """更新信封收藏。"""
     data = request.get_json(silent=True) or {}
-    error = validate_payload(data)
+    error = validate_envelope_payload(data)
     if error:
         return jsonify({"error": error}), 400
 
@@ -157,7 +193,7 @@ def update_envelope(envelope_id: int):
         row = conn.execute(
             "SELECT * FROM envelopes WHERE id = ?", (envelope_id,)
         ).fetchone()
-        return jsonify(row_to_dict(row))
+        return jsonify(envelope_row_to_dict(row))
     finally:
         conn.close()
 
@@ -169,6 +205,124 @@ def delete_envelope(envelope_id: int):
     try:
         cursor = conn.execute(
             "DELETE FROM envelopes WHERE id = ?", (envelope_id,)
+        )
+        conn.commit()
+        if cursor.rowcount == 0:
+            return jsonify({"error": "记录不存在"}), 404
+        return jsonify({"message": "已删除"})
+    finally:
+        conn.close()
+
+
+@app.route("/api/postmarks", methods=["GET"])
+def list_postmarks():
+    """获取全部邮戳图鉴。"""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM postmarks ORDER BY id ASC"
+        ).fetchall()
+        return jsonify([postmark_row_to_dict(r) for r in rows])
+    finally:
+        conn.close()
+
+
+@app.route("/api/postmarks/<int:postmark_id>", methods=["GET"])
+def get_postmark(postmark_id: int):
+    """获取单条邮戳详情。"""
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT * FROM postmarks WHERE id = ?", (postmark_id,)
+        ).fetchone()
+        if row is None:
+            return jsonify({"error": "记录不存在"}), 404
+        return jsonify(postmark_row_to_dict(row))
+    finally:
+        conn.close()
+
+
+@app.route("/api/postmarks", methods=["POST"])
+def create_postmark():
+    """新建邮戳图鉴。"""
+    data = request.get_json(silent=True) or {}
+    error = validate_postmark_payload(data)
+    if error:
+        return jsonify({"error": error}), 400
+
+    conn = get_connection()
+    try:
+        cursor = conn.execute(
+            """
+            INSERT INTO postmarks
+                (name, shape, common_use, description)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                data["name"],
+                data["shape"],
+                data["common_use"],
+                data["description"],
+            ),
+        )
+        conn.commit()
+        row = conn.execute(
+            "SELECT * FROM postmarks WHERE id = ?", (cursor.lastrowid,)
+        ).fetchone()
+        return jsonify(postmark_row_to_dict(row)), 201
+    finally:
+        conn.close()
+
+
+@app.route("/api/postmarks/<int:postmark_id>", methods=["PUT"])
+def update_postmark(postmark_id: int):
+    """更新邮戳图鉴。"""
+    data = request.get_json(silent=True) or {}
+    error = validate_postmark_payload(data)
+    if error:
+        return jsonify({"error": error}), 400
+
+    conn = get_connection()
+    try:
+        existing = conn.execute(
+            "SELECT id FROM postmarks WHERE id = ?", (postmark_id,)
+        ).fetchone()
+        if existing is None:
+            return jsonify({"error": "记录不存在"}), 404
+
+        conn.execute(
+            """
+            UPDATE postmarks SET
+                name = ?,
+                shape = ?,
+                common_use = ?,
+                description = ?
+            WHERE id = ?
+            """,
+            (
+                data["name"],
+                data["shape"],
+                data["common_use"],
+                data["description"],
+                postmark_id,
+            ),
+        )
+        conn.commit()
+        row = conn.execute(
+            "SELECT * FROM postmarks WHERE id = ?", (postmark_id,)
+        ).fetchone()
+        return jsonify(postmark_row_to_dict(row))
+    finally:
+        conn.close()
+
+
+@app.route("/api/postmarks/<int:postmark_id>", methods=["DELETE"])
+def delete_postmark(postmark_id: int):
+    """删除邮戳图鉴。"""
+    conn = get_connection()
+    try:
+        cursor = conn.execute(
+            "DELETE FROM postmarks WHERE id = ?", (postmark_id,)
         )
         conn.commit()
         if cursor.rowcount == 0:
