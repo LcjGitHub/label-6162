@@ -30,7 +30,7 @@ const fileParseError = ref('')
 const isHeaderError = ref(false)
 const importing = ref(false)
 
-const CSV_HEADERS = ['寄出地', '目的地', '年份', '邮票描述', '邮戳类型', '品相']
+const CSV_HEADERS = ['寄出地', '目的地', '年份', '邮票描述', '邮戳类型', '品相', '备注']
 
 const filters = ref({
   global: { value: null, matchMode: FilterMatchMode.CONTAINS },
@@ -237,7 +237,7 @@ async function doImport() {
 }
 
 function downloadTemplate() {
-  const content = CSV_HEADERS.join(',') + '\n' + '上海,北京,2020,生肖邮票,圆形邮戳,优秀\n'
+  const content = CSV_HEADERS.join(',') + '\n' + '上海,北京,2020,生肖邮票,圆形邮戳,优秀,示例备注内容\n'
   const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -283,8 +283,15 @@ function downloadTemplate() {
       removable-sort
       class="rounded-lg border border-slate-200 bg-white shadow-sm"
       data-key="id"
-      :paginator-template="{ layout: 'RowsPerPageDropdown FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport', 'CurrentPageReport': '第 {first}-{last} 条 / 共 {totalRecords} 条' }"
-      :rows-per-page-label="'每页条数'"
+      :paginator-template="{
+        layout: 'RowsPerPageDropdown FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport',
+        FirstPageLink: { label: '首页' },
+        PrevPageLink: { label: '上一页' },
+        NextPageLink: { label: '下一页' },
+        LastPageLink: { label: '末页' },
+        RowsPerPageDropdown: { label: '每页条数' },
+        CurrentPageReport: '第 {first}-{last} 条 / 共 {totalRecords} 条',
+      }"
     >
       <template #header>
         <div class="flex justify-end">
@@ -356,9 +363,10 @@ function downloadTemplate() {
           <ul class="list-disc pl-5 space-y-0.5">
             <li>编码：UTF-8（推荐带 BOM）或 GBK</li>
             <li>分隔符：英文逗号</li>
-            <li>表头必须为：寄出地、目的地、年份、邮票描述、邮戳类型、品相（顺序不能变）</li>
+            <li>表头必须为：寄出地、目的地、年份、邮票描述、邮戳类型、品相、备注（顺序不能变）</li>
             <li>年份范围：1800–2100 的整数</li>
             <li>品相：优秀 / 良好 / 一般</li>
+            <li>备注：可选，允许为空，最多 1000 字符</li>
           </ul>
           <button
             type="button"

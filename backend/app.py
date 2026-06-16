@@ -356,19 +356,20 @@ def delete_envelope(envelope_id: int):
         conn.close()
 
 
-CSV_HEADERS_ZH = ["寄出地", "目的地", "年份", "邮票描述", "邮戳类型", "品相"]
-CSV_FIELDS = ["origin", "destination", "year", "stamp_description", "postmark_type", "condition"]
+CSV_HEADERS_ZH = ["寄出地", "目的地", "年份", "邮票描述", "邮戳类型", "品相", "备注"]
+CSV_FIELDS = ["origin", "destination", "year", "stamp_description", "postmark_type", "condition", "remark"]
 
 
 def validate_csv_row(row_values: list[str], line_no: int) -> tuple[dict | None, str | None]:
     """
-    * 校验单行 CSV 数据，返回 (合法字典, 错误信息)。
-    * @param {list[str]} row_values - 已去掉空首尾的六列值
-    * @param {int} line_no - 原始行号（用于错误提示）
-    * @returns {tuple[dict | None, str | None]}
+     * 校验单行 CSV 数据，返回 (合法字典, 错误信息)。
+     * @param {list[str]} row_values - 已去掉空首尾的七列值
+     * @param {int} line_no - 原始行号（用于错误提示）
+     * @returns {tuple[dict | None, str | None]}
+     */
     """
-    if len(row_values) != 6:
-        return None, f"列数应为 6 列，实际 {len(row_values)} 列"
+    if len(row_values) != 7:
+        return None, f"列数应为 7 列，实际 {len(row_values)} 列"
 
     data = {}
     for field, value in zip(CSV_FIELDS, row_values):
@@ -387,7 +388,8 @@ def import_envelopes():
     """
     批量导入信封收藏。
     接收 multipart/form-data，字段名：file（CSV 文本文件）。
-    CSV 格式：UTF-8，逗号分隔，含表头（寄出地,目的地,年份,邮票描述,邮戳类型,品相）。
+    CSV 格式：UTF-8，逗号分隔，含表头（寄出地,目的地,年份,邮票描述,邮戳类型,品相,备注）。
+    备注列为可选，允许为空。
     """
     if "file" not in request.files:
         return jsonify({"error": "缺少上传文件字段 file"}), 400
@@ -452,8 +454,8 @@ def import_envelopes():
                 conn.execute(
                     """
                     INSERT INTO envelopes
-                        (origin, destination, year, stamp_description, postmark_type, condition)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                        (origin, destination, year, stamp_description, postmark_type, condition, remark)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         rec["origin"],
@@ -462,6 +464,7 @@ def import_envelopes():
                         rec["stamp_description"],
                         rec["postmark_type"],
                         rec["condition"],
+                        rec.get("remark", "") or "",
                     ),
                 )
                 success_count += 1
