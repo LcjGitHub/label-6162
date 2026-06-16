@@ -20,3 +20,17 @@ export async function fetchStats() {
   const { data } = await api.get('/envelopes/stats')
   return data
 }
+
+/**
+ * 批量导入信封收藏（CSV 文件上传）。
+ * @param {File} file - CSV 文件对象
+ * @returns {Promise<{success: number, failed_count: number, failed_lines: string[], processed: number}>}
+ */
+export async function importEnvelopes(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  const { data } = await api.post('/envelopes/import', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data
+}

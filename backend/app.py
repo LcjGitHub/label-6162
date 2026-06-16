@@ -1,5 +1,8 @@
 """手写信封邮票组合收藏 — Flask API。"""
 
+import csv
+import io
+
 from flask import Flask, jsonify, request
 
 from database import get_connection, init_db
@@ -250,6 +253,130 @@ def delete_envelope(envelope_id: int):
         return jsonify({"message": "已删除"})
     finally:
         conn.close()
+
+
+CSV_HEADERS_ZH = ["寄出地", "目的地", "年份", "邮票描述", "邮戳类型", "品相"]
+CSV_FIELDS = ["origin", "destination", "year", "stamp_description", "postmark_type", "condition"]
+
+
+def validate_csv_row(row_values: list[str], line_no: int) -> tuple[dict | None, str | None]:
+    """
+    * 校验单行 CSV 数据，返回 (合法字典, 错误信息)。
+    * @param {list[str]} row_values - 已去掉空首尾的六列值
+    * @param {int} line_no - 原始行号（用于错误提示）
+    * @returns {tuple[dict | None, str | None]}
+    """
+    if len(row_values) != 6:
+        return None, f"第 {line_no} 行：列数应为 6 列，实际 {len(row_values)} 列"
+
+    data = {}
+    for field, value in zip(CSV_FIELDS, row_values):
+        data[field] = value.strip() if isinstance(value, str) else value
+
+    error = validate_envelope_payload(data)
+    if error:
+        return None, f"第 {line_no} 行：{error}"
+
+    data["year"] = int(data["year"])
+    return data, None
+
+
+@app.route("/api/envelopes/import", methods=["POST"])
+def import_envelopes():
+    """
+    批量导入信封收藏。
+    接收 multipart/form-data，字段名：file（CSV 文本文件）。
+    CSV 格式：UTF-8，逗号分隔，含表头（寄出地,目的地,年份,邮票描述,邮戳类型,品相）。
+    """
+    if "file" not in request.files:
+        return jsonify({"error": "缺少上传文件字段 file"}), 400
+
+    file_storage = request.files["file"]
+    if not file_storage.filename:
+        return jsonify({"error": "未选择文件"}), 400
+
+    try:
+        raw_bytes = file_storage.read()
+        try:
+            content = raw_bytes.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            try:
+                content = raw_bytes.decode("gbk")
+            except UnicodeDecodeError:
+                return jsonify({"error": "文件编码不支持，请使用 UTF-8 或 GBK 编码"}), 400
+    except Exception as e:
+        return jsonify({"error": f"读取文件失败：{str(e)}"}), 400
+
+    reader = csv.reader(io.StringIO(content))
+    rows = list(reader)
+
+    if not rows:
+        return jsonify({"error": "文件内容为空"}), 400
+
+    header = [h.strip() for h in rows[0]]
+    if header != CSV_HEADERS_ZH:
+        return (
+            jsonify(
+                {
+                    "error": "表头格式不正确",
+                    "expected": CSV_HEADERS_ZH,
+                    "actual": header,
+                }
+            ),
+            400,
+        )
+
+    data_rows = rows[1:]
+    valid_records = []
+    failed_lines = []
+
+    for idx, row in enumerate(data_rows):
+        line_no = idx + 2
+        non_empty = [c for c in row if (c.strip() if isinstance(c, str) else c)]
+        if not non_empty:
+            continue
+        record, err = validate_csv_row(row, line_no)
+        if err:
+            failed_lines.append(err)
+        else:
+            valid_records.append(record)
+
+    success_count = 0
+    conn = get_connection()
+    try:
+        for rec in valid_records:
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO envelopes
+                        (origin, destination, year, stamp_description, postmark_type, condition)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        rec["origin"],
+                        rec["destination"],
+                        rec["year"],
+                        rec["stamp_description"],
+                        rec["postmark_type"],
+                        rec["condition"],
+                    ),
+                )
+                success_count += 1
+            except Exception as e:
+                failed_lines.append(f"数据库写入失败：{str(e)}，数据：{rec}")
+        conn.commit()
+    finally:
+        conn.close()
+
+    return jsonify(
+        {
+            "success": success_count,
+            "failed_count": len(failed_lines),
+            "failed_lines": failed_lines,
+            "total": len(valid_records) + sum(1 for _ in []),
+            "processed": len(data_rows),
+        }
+    )
 
 
 @app.route("/api/postmarks", methods=["GET"])

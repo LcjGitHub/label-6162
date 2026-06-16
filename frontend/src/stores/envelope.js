@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import api from '@/api/envelope'
+import api, { importEnvelopes } from '@/api/envelope'
 
 /**
  * @typedef {Object} Envelope
@@ -118,6 +118,26 @@ export const useEnvelopeStore = defineStore('envelope', {
         if (this.current?.id === id) this.current = null
       } catch (err) {
         this.error = err.response?.data?.error || '删除失败'
+        throw err
+      } finally {
+        this.loading = false
+      }
+    },
+
+    /**
+     * 批量导入信封。
+     * @param {File} file
+     * @returns {Promise<{success: number, failed_count: number, failed_lines: string[], processed: number}>}
+     */
+    async batchImport(file) {
+      this.loading = true
+      this.error = null
+      try {
+        const result = await importEnvelopes(file)
+        await this.fetchAll()
+        return result
+      } catch (err) {
+        this.error = err.response?.data?.error || '导入失败'
         throw err
       } finally {
         this.loading = false
