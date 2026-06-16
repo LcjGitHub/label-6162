@@ -26,6 +26,13 @@
 - 完整增删改查，首次启动自动写入 3 条示例数据
 - 独立路由、状态管理与接口层，与信封收藏模块互不耦合
 
+### 收藏数据统计看板
+
+- 总收藏数卡片展示
+- 按品相分组统计（优秀、良好、一般，固定顺序）
+- 按年代区间分组统计（清末及以前、民国时期、建国初期、改革开放、新世纪，五个预设区间全部展示，无数据时数量为零）
+- 顶部导航"数据看板"入口，独立路由页面
+
 #### 邮戳图鉴示例数据
 
 | 名称 | 形状 | 常见用途 | 简介 |
@@ -52,6 +59,7 @@
     │   │   ├── envelope.js
     │   │   └── postmark.js
     │   ├── views/      # 页面组件
+    │   │   ├── Dashboard.vue
     │   │   ├── EnvelopeList.vue
     │   │   ├── EnvelopeDetail.vue
     │   │   ├── PostmarkList.vue
@@ -76,6 +84,7 @@ cd backend && python -m venv .venv && .venv\Scripts\activate && pip install -r r
 后端启动后访问：
 - 信封收藏：<http://localhost:4000/api/envelopes>
 - 邮戳图鉴：<http://localhost:4000/api/postmarks>
+- 收藏统计：<http://localhost:4000/api/envelopes/stats>
 
 ### 前端（一条命令开发启动）
 
@@ -104,6 +113,7 @@ cd frontend && npm install && npm run dev
 | POST | `/api/envelopes` | 新建信封 |
 | PUT | `/api/envelopes/:id` | 更新信封 |
 | DELETE | `/api/envelopes/:id` | 删除信封 |
+| GET | `/api/envelopes/stats` | 获取收藏统计数据（总数、按品相分组、按年代区间分组） |
 
 ### 邮戳图鉴接口
 
@@ -119,6 +129,7 @@ cd frontend && npm install && npm run dev
 
 | 模块 | 路径 | 说明 |
 |------|------|------|
+| 收藏统计 | `/dashboard` | 收藏数据统计看板 |
 | 信封收藏 | `/` | 信封列表页 |
 | 信封收藏 | `/envelopes/new` | 新建信封 |
 | 信封收藏 | `/envelopes/:id` | 信封详情 |

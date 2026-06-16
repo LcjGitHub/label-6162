@@ -6,6 +6,7 @@ from database import get_connection, init_db
 from seed import seed
 
 app = Flask(__name__)
+app.json.sort_keys = False
 
 ENVELOPE_REQUIRED_FIELDS = (
     "origin",
@@ -98,6 +99,8 @@ ERA_RANGES = [
     ("新世纪", 2000, 9999),
 ]
 
+CONDITION_ORDER = ["优秀", "良好", "一般"]
+
 
 @app.route("/api/envelopes/stats", methods=["GET"])
 def envelope_stats():
@@ -107,9 +110,10 @@ def envelope_stats():
         total = conn.execute("SELECT COUNT(*) AS c FROM envelopes").fetchone()["c"]
 
         condition_rows = conn.execute(
-            "SELECT condition, COUNT(*) AS c FROM envelopes GROUP BY condition ORDER BY c DESC"
+            "SELECT condition, COUNT(*) AS c FROM envelopes GROUP BY condition"
         ).fetchall()
-        by_condition = {r["condition"]: r["c"] for r in condition_rows}
+        condition_map = {r["condition"]: r["c"] for r in condition_rows}
+        by_condition = {cond: condition_map.get(cond, 0) for cond in CONDITION_ORDER}
 
         by_era = {}
         for label, lo, hi in ERA_RANGES:
@@ -117,8 +121,7 @@ def envelope_stats():
                 "SELECT COUNT(*) AS c FROM envelopes WHERE year BETWEEN ? AND ?",
                 (lo, hi),
             ).fetchone()["c"]
-            if cnt > 0:
-                by_era[label] = cnt
+            by_era[label] = cnt
 
         return jsonify({"total": total, "by_condition": by_condition, "by_era": by_era})
     finally:
